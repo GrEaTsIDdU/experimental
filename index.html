@@ -1,8 +1,8 @@
-<!DOCTYPE html><html><head><meta charset="utf-8"><title>Binary Skull</title><meta name="viewport" content="width=device-width,initial-scale=1">
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Binary Temple</title><meta name="viewport" content="width=device-width,initial-scale=1">
 <script src="https://unpkg.com/three@0.152.2/build/three.min.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" crossorigin="anonymous"></script>
 <style>
-body{margin:0;background:#000;overflow:hidden}
+body{margin:0;background:#06080b;overflow:hidden}
 button{position:absolute;top:16px;padding:10px 18px;border:none;border-radius:999px;background:#00d4ff;color:#031217;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(0,212,255,.25)}
 #d{left:calc(50% - 80px)}#r{left:calc(50% + 10px)}
 </style></head><body>
@@ -10,47 +10,82 @@ button{position:absolute;top:16px;padding:10px 18px;border:none;border-radius:99
 <button id="r" onclick="reform()">Reform</button>
 <script>
 const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,1500),renderer=new THREE.WebGLRenderer({antialias:true})
-camera.position.set(0,10,140);renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(2,devicePixelRatio));renderer.outputColorSpace=THREE.SRGBColorSpace
+camera.position.set(0,20,160);renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(2,devicePixelRatio));renderer.outputColorSpace=THREE.SRGBColorSpace
 document.body.appendChild(renderer.domElement)
-const hemi=new THREE.HemisphereLight(0x99bbff,0x0a0c10,.7),rim=new THREE.DirectionalLight(0x22ffaa,1.1);rim.position.set(-120,60,-60);scene.add(hemi,rim)
+const hemi=new THREE.HemisphereLight(0x9ad0ff,0x0a0c10,.8),rim=new THREE.DirectionalLight(0x22ffaa,1.0);rim.position.set(-120,60,-60);scene.add(hemi,rim)
 
-// texture generator
+// Digit textures
 function tex(ch){const s=128,c=document.createElement("canvas");c.width=s;c.height=s;const x=c.getContext("2d")
 x.fillStyle="#00e9ff";x.font="bold 96px monospace";x.textAlign="center";x.textBaseline="middle";x.fillText(ch,s/2,s/2)
 const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t}
-const t1=tex("1"),t0=tex("0")
+const T1=tex("1"),T0=tex("0")
+function sprite(map){return new THREE.Sprite(new THREE.SpriteMaterial({map:map,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}))}
 
-function spr(map,depth){const m=new THREE.SpriteMaterial({map:map,transparent:true,blending:THREE.AdditiveBlending})
-const s=new THREE.Sprite(m);const scale=1.4-0.6*Math.min(1,depth/60);s.scale.set(scale,scale,1);s.material.opacity=0.25+0.75*Math.exp(-depth*0.03);return s}
+// Create dome points
+const group=new THREE.Group();scene.add(group)
+const radius=60,rows=36,cols=72,digits=[],domePos=[],vimanaPos=[]
+for(let i=0;i<=rows;i++){
+  const v=i/rows,phi=v*Math.PI/2
+  const ringR=Math.cos(phi)*radius
+  const y=Math.sin(phi)*radius
+  const ringCount=Math.max(8,Math.floor(cols*Math.cos(phi)))
+  for(let j=0;j<ringCount;j++){
+    const u=j/ringCount,theta=u*2*Math.PI
+    const x=Math.cos(theta)*ringR, z=Math.sin(theta)*ringR
+    const pos=new THREE.Vector3(x+(Math.random()-0.5)*0.8,y+(Math.random()-0.5)*0.8,z+(Math.random()-0.5)*0.8)
+    const s=sprite(Math.random()<0.5?T1:T0)
+    const depth=pos.length(),scale=1.5-0.5*Math.min(1,depth/(radius*1.2))
+    s.scale.set(scale,scale,1);s.material.opacity=0.35+0.55*Math.exp(-Math.abs(y)/radius*0.8)
+    s.position.copy(pos);group.add(s);digits.push(s);domePos.push(pos.clone())
+  }
+}
 
-// skull shape via signed distance field
-function sdf(p){const e=(x,y,z,a,b,c)=>Math.sqrt((x*x)/(a*a)+(y*y)/(b*b)+(z*z)/(c*c))-1
-const r=(x,y,z,q)=>Math.sqrt(x*x+y*y+z*z)-q
-const b=(x,y,z,ax,ay,az)=>Math.max(Math.max(Math.abs(x)-ax,Math.abs(y)-ay),Math.abs(z)-az)
-const q=p.clone(),cy=Math.cos(.18),sy=Math.sin(.18),yy=q.y*cy-q.z*sy,zz=q.y*sy+q.z*cy;q.y=yy;q.z=zz
-let d=e(q.x*.92,(q.y+10),q.z,22,24,20)
-const j=b(q.x,(q.y-6),q.z*.9,14,6,10);d=Math.min(d,j)
-const el=r(q.x+8,q.y+6,q.z-3,6.5),er=r(q.x-8,q.y+6,q.z-3,6.5);d=Math.max(d,-el*.85);d=Math.max(d,-er*.85)
-const no=r(q.x,q.y,q.z-2,5.2);d=Math.max(d,-no*.75)
-const cl=r(q.x+12,q.y+2,q.z+2,9),cr=r(q.x-12,q.y+2,q.z+2,9);d=Math.min(d,cl-3);d=Math.min(d,cr-3)
-const te=b(q.x,q.y-10,q.z,12,1.3,8);d=Math.max(d,-te*.7)
-return d}
+// Create vimana positions (stepped pyramid)
+for(let i=0;i<domePos.length;i++){
+  const d=domePos[i]
+  const level=Math.floor((d.y/radius)*6)
+  const stepY=level*6
+  const stepR=radius*(1-level/6)*0.8
+  const angle=Math.atan2(d.z,d.x)
+  const x=Math.cos(angle)*stepR+(Math.random()-0.5)*1.2
+  const z=Math.sin(angle)*stepR+(Math.random()-0.5)*1.2
+  vimanaPos.push(new THREE.Vector3(x,stepY,z))
+}
 
-// sample points
-function pts(n){const a=[];let k=0;while(a.length<n&&k<n*80){k++
-const p=new THREE.Vector3((Math.random()-.5)*62,(Math.random()-.3)*64,(Math.random()-.5)*62)
-const d=sdf(p);if(Math.abs(d)<.7){p.addScaledVector(new THREE.Vector3(Math.random()-.5,Math.random()-.5,Math.random()-.5).normalize(),.6*Math.random());a.push(p)}}return a}
+function detonate(){
+  digits.forEach(s=>{
+    const outward=s.position.clone().normalize()
+    const rnd=new THREE.Vector3(Math.random()-0.5,Math.random()-0.5,Math.random()-0.5).normalize()
+    const v=outward.multiplyScalar(18*(0.6+Math.random())).add(rnd.multiplyScalar(24*(0.4+Math.random())))
+    s.userData.v=v
+  })
+}
+function reform(){
+  digits.forEach((s,i)=>{
+    gsap.to(s.position,{x:vimanaPos[i].x,y:vimanaPos[i].y,z:vimanaPos[i].z,duration:1.6,ease:"power3.out"})
+    s.userData.v=null
+  })
+}
 
-const skull=new THREE.Group();scene.add(skull)
-const P=pts(5200),S=[],O=[]
-for(let i=0;i<P.length;i++){const depth=P[i].length();const s=spr(Math.random()<.5?t1:t0,depth);s.position.copy(P[i]);skull.add(s);S.push(s);O.push(P[i].clone())}
-
-function detonate(){S.forEach(s=>{s.userData.v=new THREE.Vector3(Math.random()-.5,Math.random()-.5,Math.random()-.5).normalize().multiplyScalar(40*(.5+Math.random()))})}
-function reform(){S.forEach((s,i)=>{gsap.to(s.position,{x:O[i].x,y:O[i].y,z:O[i].z,duration:1.5,ease:"power3.out"});s.userData.v=null})}
-
-function animate(){requestAnimationFrame(animate);skull.rotation.y+=.002;skull.rotation.x+=.001
-S.forEach(s=>{if(s.userData.v){s.position.addScaledVector(s.userData.v,.016);s.userData.v.multiplyScalar(.98)}})
-renderer.render(scene,camera)}
+let t=0
+function animate(){
+  requestAnimationFrame(animate)
+  t+=0.01
+  group.rotation.y=Math.sin(t*0.4)*0.14
+  group.rotation.x=Math.cos(t*0.3)*0.06
+  const dt=0.016
+  digits.forEach(s=>{
+    const v=s.userData.v
+    if(v){
+      s.position.addScaledVector(v,dt)
+      v.multiplyScalar(0.984)
+      s.material.opacity=Math.max(0.22, s.material.opacity*0.992)
+    }else{
+      s.material.opacity=Math.min(0.95, s.material.opacity+0.002)
+    }
+  })
+  renderer.render(scene,camera)
+}
 animate()
 onresize=()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)}
 </script></body></html>
