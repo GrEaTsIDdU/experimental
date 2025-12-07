@@ -2,93 +2,372 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Binary Microchip Explosion</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <title>Binary Skull Explosion</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- Core libs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r152/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.2/dist/gsap.min.js"></script>
+  <!-- Postprocessing (Unreal Bloom, FX composer) -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/postprocessing/EffectComposer.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/postprocessing/RenderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/postprocessing/UnrealBloomPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
   <style>
-    body { margin:0; background:#0a0a0d; overflow:hidden; }
-    .action-btn {
-      position: absolute; top:20px; left:50%; transform:translateX(-50%);
-      padding:0.6rem 1.8rem; font-size:1rem; font-weight:600;
-      background:#00d4ff; color:#111; border:none; border-radius:1.5rem;
-      cursor:pointer; z-index:10;
+    :root { color-scheme: dark; }
+    body { margin:0; background:#07090c; overflow:hidden; font-family:system-ui,Segoe UI,Roboto,Arial; }
+    .ui {
+      position: fixed; inset: 16px auto auto 50%; transform: translateX(-50%);
+      display:flex; gap:.6rem; z-index:10;
     }
-    .action-btn:active { transform:translateX(-50%) scale(0.95); }
+    .btn {
+      padding:.6rem 1.2rem; border:none; border-radius:999px; cursor:pointer;
+      font-weight:700; letter-spacing:.02em; background:#00d4ff; color:#051014;
+      box-shadow:0 8px 24px rgba(0,212,255,.25);
+    }
+    .btn:active { transform: scale(.98); }
+    .note {
+      position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
+      color:#84a6b8; font-size:.9rem; opacity:.9; text-align:center;
+      background:rgba(9,12,15,.6); padding:.4rem .8rem; border-radius:.6rem; backdrop-filter: blur(6px);
+    }
+    canvas { display:block; }
   </style>
 </head>
 <body>
-  <button class="action-btn" onclick="explodeChip()">Try this</button>
-  <script>
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 1000);
-    camera.position.z = 80;
+  <div class="ui">
+    <button class="btn" onclick="explodeSkull()">Detonate</button>
+    <button class="btn" onclick="reformSkull()">Reform</button>
+  </div>
+  <div class="note">Skull assembled from glowing binary digits. Detonate, then reform.</div>
 
-    const renderer = new THREE.WebGLRenderer({antialias:true});
+  <script>
+    // --- Scene, camera, renderer ---
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x07090c, 0.015);
+
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1200);
+    camera.position.set(0, 10, 120);
+
+    const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     document.body.appendChild(renderer.domElement);
 
-    // Glow effect via additive blending
-    function createDigitTexture(char, color='#00ff99') {
-      const size=128, c=document.createElement('canvas'); c.width=size; c.height=size;
-      const ctx=c.getContext('2d');
-      ctx.fillStyle=color; ctx.font='bold 96px monospace';
+    // --- Lighting for realism ---
+    const hemi = new THREE.HemisphereLight(0x99bbff, 0x0a0c10, 0.6);
+    scene.add(hemi);
+
+    const keyLight = new THREE.SpotLight(0x66ddff, 5, 500, Math.PI/6, 0.35, 1.2);
+    keyLight.position.set(80, 120, 140);
+    keyLight.castShadow = false;
+    scene.add(keyLight);
+
+    const rimLight = new THREE.DirectionalLight(0x22ffaa, 1.2);
+    rimLight.position.set(-120, 60, -50);
+    scene.add(rimLight);
+
+    // --- Postprocessing: bloom for neon glow ---
+    const composer = new THREE.EffectComposer(renderer);
+    const renderPass = new THREE.RenderPass(scene, camera);
+    composer.addPass(renderPass);
+    const bloomPass = new THREE.UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      1.0, // strength
+      0.9, // radius
+      0.05 // threshold
+    );
+    composer.addPass(bloomPass);
+
+    // --- Binary digit textures (procedural) ---
+    function createDigitTexture(char, color='#00ffb4') {
+      const size = 256;
+      const c = document.createElement('canvas'); c.width=size; c.height=size;
+      const ctx = c.getContext('2d');
+      // subtle glow by drawing multiple times
+      ctx.clearRect(0,0,size,size);
       ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText(char, size/2, size/2);
-      const tex=new THREE.CanvasTexture(c);
+      for (let i=3;i>=0;i--){
+        const alpha = 0.15 + 0.2*i;
+        ctx.fillStyle = hexWithAlpha(color, alpha);
+        ctx.font = `bold ${110 + i*6}px SFMono-Regular,Consolas,Menlo,monospace`;
+        ctx.fillText(char, size/2, size/2);
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
       return tex;
     }
-    const tex1=createDigitTexture('1','#ff6f00');
-    const tex0=createDigitTexture('0','#00d4ff');
-
-    function makeSprite(tex) {
-      const mat=new THREE.SpriteMaterial({map:tex, transparent:true, blending:THREE.AdditiveBlending});
-      const s=new THREE.Sprite(mat); s.scale.set(2,2,1); return s;
+    function hexWithAlpha(hex, a=1) {
+      const col = Number('0x' + hex.replace('#',''));
+      const r = (col >> 16) & 255, g = (col >> 8) & 255, b = col & 255;
+      return `rgba(${r},${g},${b},${a})`;
     }
 
-    // Build microchip block
-    const chipSprites=[];
-    const rows=20, cols=30, layers=4, spacing=2;
-    for(let z=0; z<layers; z++){
-      for(let i=0;i<rows;i++){
-        for(let j=0;j<cols;j++){
-          const tex=Math.random()>0.5?tex1:tex0;
-          const s=makeSprite(tex);
-          s.position.set(j*spacing-cols, i*spacing-rows, z*spacing);
-          chipSprites.push(s); scene.add(s);
+    const tex1 = createDigitTexture('1','#00e9ff');
+    const tex0 = createDigitTexture('0','#ff7b00');
+
+    function makeDigitSprite(tex) {
+      const mat = new THREE.SpriteMaterial({
+        map: tex, transparent:true,
+        blending: THREE.AdditiveBlending, depthWrite:false
+      });
+      const s = new THREE.Sprite(mat);
+      s.scale.set(1.7, 1.7, 1);
+      return s;
+    }
+
+    // --- Binary rain background for depth context ---
+    const bgGroup = new THREE.Group();
+    scene.add(bgGroup);
+    for (let i=0;i<800;i++){
+      const tex = Math.random()>0.5?tex1:tex0;
+      const s = makeDigitSprite(tex);
+      s.position.set(
+        (Math.random()-0.5)*600,
+        (Math.random()-0.5)*300,
+        -200 - Math.random()*600
+      );
+      s.material.opacity = 0.15 + Math.random()*0.25;
+      s.scale.multiplyScalar(0.8 + Math.random()*0.6);
+      bgGroup.add(s);
+    }
+
+    // --- Skull assembly: sample an implicit skull SDF for 3D points, then place digit sprites on surface ---
+    // Lightweight pseudo-skull using blended primitives:
+    // cranium (ellipsoid), jaw block, eye sockets (subtractive), nasal cavity (subtractive), cheekbones (bulge).
+    function sdfSkull(p) {
+      // Helpers
+      const length = (v) => Math.sqrt(v.x*v.x + v.y*v.y + v.z*v.z);
+      const ellipsoid = (vx, vy, vz, ex, ey, ez) => Math.sqrt((vx*vx)/(ex*ex) + (vy*vy)/(ey*ey) + (vz*vz)/(ez*ez)) - 1.0;
+      const sphere = (vx,vy,vz, r) => Math.sqrt(vx*vx+vy*vy+vz*vz) - r;
+      const box = (vx,vy,vz, sx,sy,sz) => Math.max(Math.max(Math.abs(vx)-sx, Math.abs(vy)-sy), Math.abs(vz)-sz);
+
+      // Transform for skull orientation
+      const q = p.clone();
+      // Slight forward tilt
+      const tilt = 0.15;
+      const cy = Math.cos(tilt), sy = Math.sin(tilt);
+      const yy = q.y*cy - q.z*sy;
+      const zz = q.y*sy + q.z*cy;
+      q.y = yy; q.z = zz;
+
+      // Cranium (ellipsoid)
+      let d = ellipsoid(q.x*0.9, (q.y+10)*1.0, q.z*1.0, 22, 24, 20);
+
+      // Jaw (box/ellipsoid blend)
+      const jaw = box(q.x, (q.y-6), q.z*0.85, 14, 6, 10);
+      d = Math.min(d, jaw);
+
+      // Eye sockets (subtract two spheres)
+      const eyeL = sphere(q.x+8, q.y+6, q.z-3, 6.5);
+      const eyeR = sphere(q.x-8, q.y+6, q.z-3, 6.5);
+      d = Math.max(d, -eyeL*0.8);
+      d = Math.max(d, -eyeR*0.8);
+
+      // Nasal cavity (subtract capsule-ish)
+      const nose = sphere(q.x, q.y-0, q.z-2, 5.0);
+      d = Math.max(d, -nose*0.7);
+
+      // Cheekbones bulge (union with offset spheres)
+      const cheekL = sphere(q.x+12, q.y+2, q.z+2, 9.0);
+      const cheekR = sphere(q.x-12, q.y+2, q.z+2, 9.0);
+      d = Math.min(d, cheekL-3.0);
+      d = Math.min(d, cheekR-3.0);
+
+      // Teeth ridge (subtract thin horizontal box)
+      const teeth = box(q.x, q.y-10, q.z, 12, 1.5, 8);
+      d = Math.max(d, -teeth*0.6);
+
+      return d;
+    }
+
+    // Sample surface points via marching-on-distance (naive)
+    function sampleSkullPoints(count=2200) {
+      const points = [];
+      let tries = 0;
+      while (points.length < count && tries < count*50) {
+        tries++;
+        // sample around skull bounds
+        const p = new THREE.Vector3(
+          (Math.random()-0.5)*60,
+          (Math.random()-0.3)*60,
+          (Math.random()-0.5)*60
+        );
+        const d = sdfSkull(p);
+        // near surface threshold
+        if (Math.abs(d) < 0.8) {
+          // jitter to create organic surface
+          p.addScaledVector(randomVector3(), 0.5*Math.random());
+          points.push(p);
         }
       }
+      return points;
+    }
+    function randomVector3(){
+      const v = new THREE.Vector3(Math.random()-0.5, Math.random()-0.5, Math.random()-0.5);
+      v.normalize();
+      return v;
     }
 
-    // Explosion
-    function explodeChip(){
-      for(const s of chipSprites){
-        s.userData.vx=(Math.random()-0.5)*4;
-        s.userData.vy=(Math.random()-0.5)*4;
-        s.userData.vz=(Math.random()-0.5)*4;
-      }
-      gsap.to(camera.position,{x:"+=2",y:"+=1",duration:0.2,yoyo:true,repeat:3});
+    // Build skull of digits
+    const skullGroup = new THREE.Group();
+    scene.add(skullGroup);
+
+    const skullPoints = sampleSkullPoints(2800);
+    const skullSprites = [];
+    for (let i=0;i<skullPoints.length;i++){
+      const tex = (i % 7 === 0) ? tex0 : tex1; // slight color variation
+      const s = makeDigitSprite(tex);
+      const p = skullPoints[i];
+      s.position.copy(p);
+      s.material.opacity = 0.95;
+      skullGroup.add(s);
+      skullSprites.push(s);
     }
 
-    // Animate
+    // Metal pins vibe (cyber implants) for realism silhouette
+    const pins = new THREE.Group(); skullGroup.add(pins);
+    const pinMat = new THREE.MeshStandardMaterial({ color:0x2a2f35, metalness:0.7, roughness:0.35 });
+    for(let i=0;i<120;i++){
+      const geo = new THREE.CylinderGeometry(0.4, 0.4, 6, 8);
+      const m = new THREE.Mesh(geo, pinMat);
+      // place pins around skull perimeter
+      const angle = Math.random()*Math.PI*2;
+      const radius = 24 + Math.random()*6;
+      m.position.set(Math.cos(angle)*radius, -6 + Math.random()*18, Math.sin(angle)*radius);
+      m.rotation.x = Math.random()*Math.PI;
+      m.rotation.y = Math.random()*Math.PI;
+      pins.add(m);
+    }
+
+    // Slight idle motion
+    let t = 0;
+    function idleWobble() {
+      t += 0.01;
+      skullGroup.rotation.y = Math.sin(t*0.5) * 0.15;
+      skullGroup.rotation.x = Math.cos(t*0.4) * 0.08;
+    }
+
+    // Explosion + reform
+    let exploded = false;
+    function explodeSkull(){
+      if (exploded) return;
+      exploded = true;
+
+      // Camera punch
+      gsap.to(camera.position, { z: 100, x: "+=3", y: "+=2", duration: 0.18, yoyo:true, repeat:2, ease: "power2.inOut" });
+
+      skullSprites.forEach(s=>{
+        const v = randomVector3().multiplyScalar(30*(0.4+Math.random()*0.8));
+        s.userData.vel = v;
+        s.userData.spin = new THREE.Vector3(
+          (Math.random()-0.5)*0.08,
+          (Math.random()-0.5)*0.08,
+          (Math.random()-0.5)*0.08
+        );
+      });
+      pins.children.forEach(m=>{
+        const v = randomVector3().multiplyScalar(40*(0.4+Math.random()*0.8));
+        m.userData.vel = v;
+      });
+    }
+    function reformSkull(){
+      exploded = false;
+      // Pull back to original positions
+      skullSprites.forEach((s, i)=>{
+        gsap.to(s.position, { x: skullPoints[i].x, y: skullPoints[i].y, z: skullPoints[i].z, duration: 1.6, ease: "power3.out" });
+        s.userData.vel = null;
+      });
+      pins.children.forEach((m)=>{
+        gsap.to(m.position, { x:m.position.x*0.6, y:m.position.y*0.6, z:m.position.z*0.6, duration: 1.4, ease:"power3.out" });
+        m.userData.vel = null;
+      });
+      gsap.to(camera.position, { x:0, y:10, z:120, duration:1.2, ease:"power2.out" });
+    }
+
+    // --- Update loop with simple physics ---
     function animate(){
       requestAnimationFrame(animate);
-      for(const s of chipSprites){
-        if(s.userData.vx){
-          s.position.x+=s.userData.vx*0.5;
-          s.position.y+=s.userData.vy*0.5;
-          s.position.z+=s.userData.vz*0.5;
-          s.material.opacity=Math.max(0,s.material.opacity-0.01); // fade out
+
+      idleWobble();
+
+      const dt = 0.016;
+      skullSprites.forEach(s=>{
+        if (s.userData.vel){
+          // inertia + drag
+          s.position.addScaledVector(s.userData.vel, dt);
+          s.userData.vel.multiplyScalar(0.985);
+          // fade slightly during flight, then recover
+          s.material.opacity = Math.max(0.25, s.material.opacity*0.992);
+          // tiny spin wobble
+          s.rotation.z += (s.userData.spin?.z || 0);
+          s.rotation.y += (s.userData.spin?.y || 0);
+          s.rotation.x += (s.userData.spin?.x || 0);
+        } else {
+          // recover glow
+          s.material.opacity = Math.min(0.97, s.material.opacity + 0.002);
         }
-      }
-      renderer.render(scene,camera);
+      });
+      pins.children.forEach(m=>{
+        if (m.userData.vel){
+          m.position.addScaledVector(m.userData.vel, dt);
+          m.userData.vel.multiplyScalar(0.982);
+        }
+      });
+
+      composer.render();
     }
     animate();
 
-    window.addEventListener('resize',()=>{
-      camera.aspect=window.innerWidth/window.innerHeight;
+    // --- Resize handling ---
+    window.addEventListener('resize', ()=>{
+      camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth,window.innerHeight);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      composer.setSize(window.innerWidth, window.innerHeight);
+      bloomPass.resolution.set(window.innerWidth, window.innerHeight);
     });
+
+    // Optional skull GLB loading: replace procedural SDF with a real skull mesh
+    // Drop a public GLB URL below to sample vertices instead of the SDF skull.
+    // const MODEL_URL = "https://your-cdn/skull.glb"; // leave empty to use SDF
+    const MODEL_URL = "";
+    if (MODEL_URL) {
+      const loader = new THREE.GLTFLoader();
+      loader.load(MODEL_URL, (gltf)=>{
+        // Remove SDF skull
+        scene.remove(skullGroup);
+        const mesh = gltf.scene;
+        mesh.traverse(o=>{ if (o.isMesh) o.geometry.computeVertexNormals(); });
+        // Sample vertices
+        const sampled = [];
+        mesh.traverse(o=>{
+          if (o.isMesh) {
+            const pos = o.geometry.attributes.position;
+            for (let i=0;i<pos.count;i+=3) {
+              sampled.push(new THREE.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i)));
+            }
+          }
+        });
+        // Normalize and scale
+        const box = new THREE.Box3().setFromPoints(sampled);
+        const size = new THREE.Vector3(); box.getSize(size);
+        const scale = 70 / Math.max(size.x, size.y, size.z);
+        const center = new THREE.Vector3(); box.getCenter(center);
+        const skullMeshGroup = new THREE.Group(); scene.add(skullMeshGroup);
+
+        sampled.forEach((p, idx)=>{
+          p.sub(center).multiplyScalar(scale);
+          const tex = (idx % 6 === 0) ? tex0 : tex1;
+          const s = makeDigitSprite(tex);
+          s.position.copy(p);
+          skullMeshGroup.add(s);
+          skullSprites.push(s);
+          skullPoints.push(p.clone());
+        });
+      });
+    }
   </script>
 </body>
 </html>
