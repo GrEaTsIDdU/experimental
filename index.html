@@ -2,350 +2,90 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SIDDHARTH S NAIR | Trial Website</title>
-  <meta name="description" content="Experimental tactical web art by Siddharth S Nair." />
-  <link rel="icon" href="websku.png" type="image/png" />
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
+  <title>ASCII Skull</title>
   <style>
-    :root {
-      --bhagva: #ff6f00;
-      --primary: #00ff99;
-      --bg: #0a0a0d;
-      --accent2: #00d4ff;
-      --skull-size: clamp(240px, 40vw, 420px);
-      --font-main: 'Fira Mono', 'Menlo', 'Consolas', monospace;
-    }
-
-    html { height: 100%; background: var(--bg); }
     body {
-      min-height: 100vh; margin: 0; padding: 0;
-      background: transparent;
-      font-family: var(--font-main); color: var(--primary);
-      display: flex; flex-direction: column; align-items: center;
-      justify-content: flex-start; position: relative; padding-top: 3rem;
-      overflow-x: hidden;
-    }
-
-    /* Background rain layer */
-    #bg {
-      position: fixed; top: 0; left: 0;
-      width: 100%; height: 100%;
-      z-index: 0; background: #000;
-    }
-
-    .header, main, footer { position: relative; z-index: 1; }
-    .header { text-align: center; margin-bottom: 2rem; }
-    .header h1 { font-size: 3rem; font-weight: 900; margin: 0; color: var(--bhagva); }
-    .header p { margin: 0.5rem 0 0; font-size: 1.2rem; color: #b2ffe0; }
-
-    .glitch-container {
-      width: var(--skull-size);
-      height: var(--skull-size);
-      margin: 2rem auto;
-      display: flex; align-items: center; justify-content: center;
-      background: #1a1a1a;
-      border-radius: 1rem;
-      box-shadow: 0 0 0 1px #00ff9944;
+      margin: 0;
+      background: black;
       overflow: hidden;
     }
-    /* Foreground transform canvas fills the container */
-    #transformCanvas {
+    canvas {
       display: block;
-      width: 100%;
-      height: 100%;
     }
-
-    .action-btn {
-      display: block; margin: 1.5rem auto 3rem auto;
-      padding: 0.8rem 2rem; font-size: 1.1rem; font-weight: 600;
-      background: var(--accent2); color: #111;
-      border: none; border-radius: 1.5rem; cursor: pointer;
-      box-shadow: 0 0 16px rgba(0,212,255,0.25);
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    .action-btn:hover { box-shadow: 0 0 24px rgba(0,212,255,0.4); transform: translateY(-2px); }
-    .action-btn:active { transform: scale(0.95); }
-
-    #about {
-      max-width: 640px; margin: 0 auto 3rem auto; padding: 1.5rem;
-      background: #151515; border-radius: 1rem; text-align: center;
-      box-shadow: 0 0 24px rgba(0,255,153,0.1); z-index: 2;
-    }
-    #about h2 { font-size: 1.6rem; color: var(--accent2); margin-bottom: 0.75rem; }
-    #about p { font-size: 1.05rem; color: #e0ffe0; margin: 0; line-height: 1.5; }
-
-    footer { text-align:center; margin: 2rem 0; font-size: 0.9rem; color:#b2ffe055; }
   </style>
 </head>
 <body>
-  <div id="bg"></div>
-
-  <div class="header">
-    <h1>SIDDHARTH S NAIR</h1>
-    <p>trial website – experimental</p>
-  </div>
-
-  <main>
-    <div class="glitch-container">
-      <canvas id="transformCanvas"></canvas>
-    </div>
-    <button class="action-btn" id="transformBtn">Try This!</button>
-    <section id="about">
-      <h2>About Me</h2>
-      <p>I am an ECE engineer exploring Web Development to showcase my projects!</p>
-    </section>
-  </main>
-
-  <footer>
-    &copy; <span id="year"></span> Siddharth. Crafted with ❤️
-  </footer>
-
-  <!-- Punisher audio -->
-  <audio id="punisherSound" src="assets/punishertitle.mp3" preload="auto"></audio>
-
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
-    document.getElementById('year').textContent = new Date().getFullYear();
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.z = 100;
 
-    /* =========================
-       Background Binary Rain
-       ========================= */
-    const bgScene = new THREE.Scene();
-    const bgCamera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
-    bgCamera.position.z = 80;
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
 
-    const bgRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-    bgRenderer.setPixelRatio(window.devicePixelRatio);
-    bgRenderer.setSize(window.innerWidth, window.innerHeight);
-    document.getElementById('bg').appendChild(bgRenderer.domElement);
-
-    Object.assign(bgRenderer.domElement.style, {
-      position: 'fixed',
-      top: 0, left: 0,
-      width: '100%', height: '100%',
-      zIndex: 0,
-      pointerEvents: 'none'
-    });
-
-    function createDigitTexture(char, color = '#ff6f00') {
-      const size = 128;
-      const c = document.createElement('canvas'); c.width = size; c.height = size;
-      const ctx = c.getContext('2d');
-      ctx.clearRect(0, 0, size, size);
+    function makeCharTexture(char, color="#00ff99") {
+      const canvas = document.createElement("canvas");
+      canvas.width = 64; canvas.height = 64;
+      const ctx = canvas.getContext("2d");
       ctx.fillStyle = color;
-      ctx.font = 'bold 96px monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(char, size / 2, size / 2);
-      const tex = new THREE.CanvasTexture(c);
-      tex.minFilter = THREE.LinearFilter;
-      tex.magFilter = THREE.LinearFilter;
-      tex.needsUpdate = true;
-      return tex;
+      ctx.font = "bold 48px monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(char, 32, 32);
+      return new THREE.CanvasTexture(canvas);
     }
 
-    const rainTex1 = createDigitTexture('1', '#ff6f00');
-    const rainTex0 = createDigitTexture('0', '#ff6f00');
+    const textures = [
+      makeCharTexture("0"), makeCharTexture("1"),
+      makeCharTexture("#"), makeCharTexture("@"),
+      makeCharTexture("X"), makeCharTexture(" ")
+    ];
 
-    function makeRainSprite(charTex) {
-      const material = new THREE.SpriteMaterial({ map: charTex, transparent: true });
-      const sprite = new THREE.Sprite(material);
-      sprite.scale.set(4, 4, 1);
+    function makeSprite(tex) {
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+      const sprite = new THREE.Sprite(mat);
+      sprite.scale.set(2.5, 2.5, 1);
       return sprite;
     }
 
-    const RAIN_COUNT = 300, AREA = 140, TOP = 90, BOTTOM = -90;
-    const SPEED_MIN = 0.12, SPEED_MAX = 0.35;
+    const skullSprites = [];
+    const skullWidth = 60, skullHeight = 80;
 
-    const rainSprites = [];
-    for (let i = 0; i < RAIN_COUNT; i++) {
-      const tex = Math.random() > 0.5 ? rainTex1 : rainTex0;
-      const s = makeRainSprite(tex);
-      s.position.set(
-        (Math.random() - 0.5) * AREA,
-        Math.random() * (TOP - 10) + 10,
-        (Math.random() - 0.5) * AREA
-      );
-      s.userData.vy = -(Math.random() * (SPEED_MAX - SPEED_MIN) + SPEED_MIN);
-      s.userData.vx = (Math.random() - 0.5) * 0.05;
-      s.userData.vz = (Math.random() - 0.5) * 0.05;
-      rainSprites.push(s);
-      bgScene.add(s);
-    }
+    for (let y = 0; y < skullHeight; y++) {
+      for (let x = 0; x < skullWidth; x++) {
+        const nx = x / skullWidth;
+        const ny = y / skullHeight;
 
-    bgScene.fog = new THREE.FogExp2(0x000000, 0.015);
+        // Skull mask function (side profile)
+        const r = Math.sqrt((nx - 0.4)**2 + (ny - 0.5)**2);
+        const jaw = ny > 0.6 && nx < 0.5;
+        const eye = Math.abs(nx - 0.35) < 0.05 && Math.abs(ny - 0.4) < 0.05;
+        const skull = r < 0.35 || jaw || eye;
 
-    /* =========================
-       Foreground Transform
-       ========================= */
-    const tCanvas = document.getElementById("transformCanvas");
-    const container = document.querySelector(".glitch-container");
-
-    const fgRenderer = new THREE.WebGLRenderer({ canvas: tCanvas, antialias: true, alpha: true });
-    fgRenderer.setPixelRatio(window.devicePixelRatio);
-    fgRenderer.setSize(container.clientWidth, container.clientHeight);
-
-    const fgScene = new THREE.Scene();
-    const fgCamera = new THREE.PerspectiveCamera(70, container.clientWidth / container.clientHeight, 0.1, 1000);
-    fgCamera.position.z = 100;
-
-    function makeTexture(char, color){
-      const c=document.createElement("canvas"); c.width=64; c.height=64;
-      const ctx=c.getContext("2d");
-      ctx.fillStyle=color; ctx.font="bold 48px monospace";
-      ctx.textAlign="center"; ctx.textBaseline="middle";
-      ctx.fillText(char,32,32);
-      return new THREE.CanvasTexture(c);
-    }
-    const tex0g=makeTexture("0","#00ff55"), tex1g=makeTexture("1","#00ff55");
-    const tex0o=makeTexture("0","#ff8800"), tex1o=makeTexture("1","#ff8800");
-
-    function makeSprite(tex){
-      const mat=new THREE.SpriteMaterial({map:tex,transparent:true});
-      const s=new THREE.Sprite(mat); s.scale.set(3,3,1); return s;
-    }
-
-    const COUNT=1200;
-    const domePos=[], templePos=[], sprites=[];
-
-    // Dome positions
-    for(let i=0;i<COUNT;i++){
-      const phi=Math.random()*Math.PI/2;
-      const theta=Math.random()*Math.PI*2;
-      const r=30;
-      const x=r*Math.sin(phi)*Math.cos(theta);
-      const y=r*Math.cos(phi);
-      const z=r*Math.sin(phi)*Math.sin(theta);
-      domePos.push(new THREE.Vector3(x,y,z));
-    }
-
-    // Temple positions (tiered)
-    const tiers=10, tierHeight=4, baseRadius=25;
-    for(let t=0;t<tiers;t++){
-      const tierY=t*tierHeight;
-      const tierR=baseRadius*(1-t/tiers);
-      const cols=40-t*2;
-      for(let c=0;c<cols;c++){
-        const ang=(c/cols)*Math.PI*2;
-        const x=tierR*Math.cos(ang);
-        const z=tierR*Math.sin(ang);
-        templePos.push(new THREE.Vector3(x,tierY,z));
+        if (skull) {
+          const tex = eye ? textures[3] : textures[Math.floor(Math.random() * 5)];
+          const sprite = makeSprite(tex);
+          sprite.position.set((x - skullWidth/2)*1.5, (skullHeight/2 - y)*1.5, 0);
+          skullSprites.push(sprite);
+          scene.add(sprite);
+        }
       }
     }
 
-    // Sprites start as green dome
-    for(let i=0;i<COUNT;i++){
-      const tex=Math.random()>0.5?tex1g:tex0g;
-      const s=makeSprite(tex);
-      s.position.copy(domePos[i%domePos.length]);
-      // depth glow variation
-      s.material.opacity = 0.35 + (0.65 * (1 - Math.abs(s.position.z)/50));
-      sprites.push(s); fgScene.add(s);
-    }
-
-    let detonated=false, reforming=false;
-
-    function detonate(){
-      detonated=true; reforming=false;
-      const sound=document.getElementById("punisherSound");
-      if(sound){ sound.currentTime=0; sound.play().catch(()=>{}); }
-      // subtle flash feedback
-      const oldBg = document.body.style.background;
-      document.body.style.background = "#111";
-      setTimeout(()=>document.body.style.background = oldBg || "transparent", 300);
-
-      sprites.forEach(s=>{
-        s.userData.v=new THREE.Vector3(
-          (Math.random()-0.5)*2,
-          (Math.random()-0.5)*2,
-          (Math.random()-0.5)*2
-        );
-      });
-      setTimeout(reformTemple,5000);
-    }
-
-    function reformTemple(){
-      detonated=false; reforming=true;
-      sprites.forEach((s,i)=>{
-        s.material.map=Math.random()>0.5?tex1o:tex0o;
-        s.userData.target=templePos[i%templePos.length];
-      });
-    }
-
-    document.getElementById("transformBtn").onclick=detonate;
-
-    /* =========================
-       Unified Animation Loop
-       ========================= */
-    function animate(){
+    function animate() {
       requestAnimationFrame(animate);
-
-      // Background rain camera motion
-      const t = Date.now() * 0.0002;
-      bgCamera.position.x = Math.sin(t) * 5;
-      bgCamera.position.y = Math.cos(t * 0.7) * 3;
-      bgCamera.lookAt(0, 0, 0);
-
-      // Rain update
-      for (const s of rainSprites) {
-        s.position.y += s.userData.vy;
-        s.position.x += s.userData.vx * 0.5;
-        s.position.z += s.userData.vz * 0.5;
-        if (s.position.y < BOTTOM) {
-          s.position.y = TOP;
-          s.position.x = (Math.random() - 0.5) * AREA;
-          s.position.z = (Math.random() - 0.5) * AREA;
-          s.userData.vy = -(Math.random() * (SPEED_MAX - SPEED_MIN) + SPEED_MIN);
-          s.userData.vx = (Math.random() - 0.5) * 0.05;
-          s.userData.vz = (Math.random() - 0.5) * 0.05;
-        }
-      }
-
-      // Foreground camera cinematic orbit
-      const tt = Date.now() * 0.00015;
-      fgCamera.position.x = 100 * Math.sin(tt);
-      fgCamera.position.z = 100 * Math.cos(tt);
-      fgCamera.lookAt(0, 20, 0);
-
-      // Transform update
-      for (const s of sprites) {
-        if(detonated && s.userData.v){
-          s.position.add(s.userData.v);
-          s.userData.v.multiplyScalar(0.95);
-        }
-        if(reforming && s.userData.target){
-          s.position.lerp(s.userData.target, 0.05);
-        }
-      }
-
-      bgRenderer.render(bgScene, bgCamera);
-      fgRenderer.render(fgScene, fgCamera);
+      camera.lookAt(0, 0, 0);
+      renderer.render(scene, camera);
     }
     animate();
 
-    /* =========================
-       Resize Handling (both)
-       ========================= */
-    function resizeAll(){
-      // Background
-      bgCamera.aspect = window.innerWidth / window.innerHeight;
-      bgCamera.updateProjectionMatrix();
-      bgRenderer.setSize(window.innerWidth, window.innerHeight);
-
-      // Foreground container
-      const w = container.clientWidth;
-      const h = container.clientHeight;
-      fgCamera.aspect = w / h;
-      fgCamera.updateProjectionMatrix();
-      fgRenderer.setSize(w, h);
-    }
-
-    window.addEventListener('resize', resizeAll);
-    // In case fonts/layout shift container after load
-    setTimeout(resizeAll, 50);
-    setTimeout(resizeAll, 400);
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
   </script>
 </body>
 </html>
