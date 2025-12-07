@@ -41,11 +41,11 @@
       overflow-x: hidden;
     }
 
-    /* Background image layer with parallax */
+    /* Background image layer with zoom + parallax */
     #bg-image {
       position: fixed;
       top: 0; left: 0;
-      width: 100%; height: 100%;
+      width: 120%; height: 120%; /* zoomed in */
       background: url('cloudtech.png') center center / cover no-repeat;
       z-index: 0;
       opacity: 0.25; /* adjust intensity */
@@ -169,11 +169,20 @@
     }
     document.getElementById('year').textContent = new Date().getFullYear();
 
-    // Parallax effect for background image
+    // Parallax (scroll) + mouse horizontal drift for background image
+    const bgImage = document.getElementById('bg-image');
+    let mouseX = 0;
+
     window.addEventListener('scroll', () => {
-      const scrollY = window.scrollY;
-      const bgImage = document.getElementById('bg-image');
-      bgImage.style.transform = `translateY(${scrollY * 0.2}px)`; // adjust multiplier for speed
+      const scrollY = window.scrollY * 0.3; // vertical drift
+      bgImage.style.transform = `translate(${mouseX}px, ${scrollY}px)`;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      const xNorm = e.clientX / window.innerWidth; // 0..1
+      mouseX = (xNorm - 0.5) * 60; // horizontal drift strength
+      const scrollY = window.scrollY * 0.3;
+      bgImage.style.transform = `translate(${mouseX}px, ${scrollY}px)`;
     });
   </script>
 
