@@ -10,31 +10,32 @@ button{position:absolute;top:16px;padding:10px 18px;border:none;border-radius:99
 <button id="r" onclick="reform()">Reform</button>
 <script>
 const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,1500),renderer=new THREE.WebGLRenderer({antialias:true})
-camera.position.set(0,30,160);renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(2,devicePixelRatio));renderer.outputColorSpace=THREE.SRGBColorSpace
+camera.position.set(0,40,180);renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(2,devicePixelRatio));renderer.outputColorSpace=THREE.SRGBColorSpace
 document.body.appendChild(renderer.domElement)
-const hemi=new THREE.HemisphereLight(0x9ad0ff,0x0a0c10,.8),rim=new THREE.DirectionalLight(0x22ffaa,1.0);rim.position.set(-120,60,-60);scene.add(hemi,rim)
+const hemi=new THREE.HemisphereLight(0x99ffcc,0x0a0c10,.8),rim=new THREE.DirectionalLight(0xffaa22,1.0);rim.position.set(-120,60,-60);scene.add(hemi,rim)
 
 // Digit textures
-function tex(ch){const s=128,c=document.createElement("canvas");c.width=s;c.height=s;const x=c.getContext("2d")
-x.fillStyle="#00e9ff";x.font="bold 96px monospace";x.textAlign="center";x.textBaseline="middle";x.fillText(ch,s/2,s/2)
+function tex(ch,col){const s=128,c=document.createElement("canvas");c.width=s;c.height=s;const x=c.getContext("2d")
+x.fillStyle=col;x.font="bold 96px monospace";x.textAlign="center";x.textBaseline="middle";x.fillText(ch,s/2,s/2)
 const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t}
-const T1=tex("1"),T0=tex("0")
+const green1=tex("1","#00ff88"),green0=tex("0","#00ff88")
+const orange1=tex("1","#ff8800"),orange0=tex("0","#ff8800")
 function sprite(map){return new THREE.Sprite(new THREE.SpriteMaterial({map:map,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}))}
 
 // Create dome points
 const group=new THREE.Group();scene.add(group)
-const radius=60,rows=36,cols=72,digits=[],domePos=[],templePos=[]
+const radius=70,rows=48,cols=96,digits=[],domePos=[],templePos=[]
 for(let i=0;i<=rows;i++){
   const v=i/rows,phi=v*Math.PI/2
   const ringR=Math.cos(phi)*radius
   const y=Math.sin(phi)*radius
-  const ringCount=Math.max(8,Math.floor(cols*Math.cos(phi)))
+  const ringCount=Math.max(12,Math.floor(cols*Math.cos(phi)))
   for(let j=0;j<ringCount;j++){
     const u=j/ringCount,theta=u*2*Math.PI
     const x=Math.cos(theta)*ringR, z=Math.sin(theta)*ringR
-    const pos=new THREE.Vector3(x+(Math.random()-0.5)*0.8,y+(Math.random()-0.5)*0.8,z+(Math.random()-0.5)*0.8)
-    const s=sprite(Math.random()<0.5?T1:T0)
-    const depth=pos.length(),scale=1.5-0.5*Math.min(1,depth/(radius*1.2))
+    const pos=new THREE.Vector3(x+(Math.random()-0.5)*0.6,y+(Math.random()-0.5)*0.6,z+(Math.random()-0.5)*0.6)
+    const s=sprite(Math.random()<0.5?green1:green0)
+    const depth=pos.length(),scale=1.6-0.5*Math.min(1,depth/(radius*1.2))
     s.scale.set(scale,scale,1);s.material.opacity=0.35+0.55*Math.exp(-Math.abs(y)/radius*0.8)
     s.position.copy(pos);group.add(s);digits.push(s);domePos.push(pos.clone())
   }
@@ -43,12 +44,12 @@ for(let i=0;i<=rows;i++){
 // Temple Vimana: stepped pyramid with tapering radius
 for(let i=0;i<domePos.length;i++){
   const d=domePos[i]
-  const level=Math.floor((d.y/radius)*6)
-  const stepY=level*6
-  const stepR=radius*(1-level/6)*0.7
+  const level=Math.floor((d.y/radius)*8)
+  const stepY=level*7
+  const stepR=radius*(1-level/8)*0.6
   const angle=Math.atan2(d.z,d.x)
-  const x=Math.cos(angle)*stepR+(Math.random()-0.5)*1.2
-  const z=Math.sin(angle)*stepR+(Math.random()-0.5)*1.2
+  const x=Math.cos(angle)*stepR+(Math.random()-0.5)*1.0
+  const z=Math.sin(angle)*stepR+(Math.random()-0.5)*1.0
   templePos.push(new THREE.Vector3(x,stepY,z))
 }
 
@@ -56,13 +57,14 @@ function detonate(){
   digits.forEach(s=>{
     const outward=s.position.clone().normalize()
     const rnd=new THREE.Vector3(Math.random()-0.5,Math.random()-0.5,Math.random()-0.5).normalize()
-    const v=outward.multiplyScalar(18*(0.6+Math.random())).add(rnd.multiplyScalar(24*(0.4+Math.random())))
+    const v=outward.multiplyScalar(20*(0.6+Math.random())).add(rnd.multiplyScalar(26*(0.4+Math.random())))
     s.userData.v=v
   })
 }
 function reform(){
   digits.forEach((s,i)=>{
     gsap.to(s.position,{x:templePos[i].x,y:templePos[i].y,z:templePos[i].z,duration:1.6,ease:"power3.out"})
+    s.material.map = Math.random()<0.5 ? orange1 : orange0
     s.userData.v=null
   })
 }
