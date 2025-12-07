@@ -1,54 +1,233 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>ChatGPT ASCII Self-Portrait</title>
-<style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SIDDHARTH S NAIR | Trial Website</title>
+  <meta name="description" content="Experimental tactical web art by Siddharth S Nair." />
+  <link rel="icon" href="websku.png" type="image/png" />
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <style>
+    :root {
+      --bhagva: #ff6f00;
+      --primary: #00ff99;
+      --bg: #0a0a0d;
+      --accent2: #00d4ff;
+      --skull-size: clamp(240px, 40vw, 420px);
+      --btn-bg: linear-gradient(90deg, var(--primary) 0%, var(--accent2) 100%);
+      --btn-shadow: 0 3px 24px rgba(0,255,153,0.25);
+      --font-main: 'Fira Mono', 'Menlo', 'Consolas', monospace;
+    }
+
+    html {
+      height: 100%;
+      background: var(--bg); /* fallback background */
+    }
     body {
-        background: #0a0f1c;
-        color: #7ddfff;
-        font-family: "Courier New", monospace;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-        margin: 0;
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+      background: transparent; /* allow canvas + image to show through */
+      font-family: var(--font-main);
+      color: var(--primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      position: relative;
+      padding-top: 3rem;
+      overflow-x: hidden;
     }
-    pre {
-        font-size: 8px;
-        line-height: 8px;
-        white-space: pre;
-        text-shadow: 0 0 6px rgba(0,255,255,0.5);
+
+    /* Background image layer */
+    #bg-image {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: url('cloudtech.png') center center / cover no-repeat;
+      z-index: -1;
+      opacity: 0.15; /* adjust intensity */
+      pointer-events: none;
     }
-</style>
+
+    /* WebGL canvas behind content */
+    #bg {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      background: #000;
+    }
+
+    .header, main, footer {
+      position: relative;
+      z-index: 1; /* ensure content is above canvas */
+    }
+
+    .header { text-align: center; margin-bottom: 2rem; }
+    .header h1 {
+      font-size: 3rem;
+      font-weight: 900;
+      margin: 0;
+      color: var(--bhagva);
+    }
+    .header p {
+      margin: 0.5rem 0 0 0;
+      font-size: 1.2rem;
+      color: #b2ffe0;
+      font-weight: 500;
+    }
+
+    .glitch-container {
+      width: var(--skull-size);
+      margin: 2rem auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #1a1a1a;
+      border-radius: 1rem;
+      box-shadow: 0 0 0 1px #00ff9944;
+      overflow: hidden;
+    }
+    .glitch-img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+      transition: transform 0.3s ease;
+    }
+
+    .action-btn {
+      display: block;
+      margin: 1rem auto;
+      padding: 0.6rem 1.8rem;
+      font-size: 1rem;
+      font-weight: 600;
+      background: var(--accent2);
+      color: #111;
+      border: none;
+      border-radius: 1.5rem;
+      cursor: pointer;
+    }
+    .action-btn:active { transform: scale(0.95); }
+
+    #about {
+      max-width: 640px;
+      margin: 2rem auto;
+      padding: 1rem;
+      background: #151515;
+      border-radius: 1rem;
+      text-align: center;
+    }
+    #about h2 { font-size: 1.6rem; color: var(--accent2); margin-bottom: 0.5rem; }
+    #about p { font-size: 1.05rem; color: #e0ffe0; margin: 0; }
+
+    footer { text-align:center; margin: 2rem 0; font-size: 0.9rem; color:#b2ffe055; }
+  </style>
 </head>
 <body>
-<pre>
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣤⣶⣿⣿⣿⣿⣶⣤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣴⣿⣿⣿⠿⠛⠛⠛⠛⠿⣿⣿⣿⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣾⣿⣿⠟⠉⠀⠀⠀⠀⠀⠀⠀⠀⠉⠻⣿⣿⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣾⣿⣿⡟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢿⣿⣿⣆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣼⣿⣿⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⣿⣿⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⡟⠀⠀⠀⣀⣀⣀⣀⠀⠀⠀⠀⣀⣀⣀⣀⠀⠀⠈⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣿⠁⠀⣴⣿⣿⣿⣿⣿⣷⠀⠀⣾⣿⣿⣿⣿⣿⣦⠀⠘⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣿⠀⠀⠻⣿⣿⣿⣿⡿⠃⠀⠀⠘⢿⣿⣿⣿⣿⠟⠀⠀⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢿⣿⣿⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⣿⣿⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣿⣿⡿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣿⣿⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣾⣿⣿⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠻⣿⣿⣦⣄⠀⠀⠀⠀⠀⠀⠀⠀⣠⣶⣿⠟⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠛⠿⣿⣶⣤⣤⣤⣶⣿⠿⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  <!-- Background layers -->
+  <div id="bg"></div>
+  <div id="bg-image"></div>
 
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣀⣀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣾⣿⣿⣿⣿⣿⣶⣦⣤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⡿⠛⠉⠙⠛⠛⠿⣿⣿⣿⣦⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⣸⣿⣿⠁⠀⠀⠀⠀⠀⠀⠀⠙⣿⣿⣧⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⠀⣀⣀⣤⣤⣤⣤⣀⣀⠀⠈⣿⣿⡇⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣾⣿⣿⣿⣿⣿⣿⣿⣿⣷⣾⣿⣿⡇⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⢿⣿⣿⣿⠿⠟⠛⠛⠻⠿⣿⣿⣿⣿⡿⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠻⢿⣿⣶⣤⣤⣤⣶⣿⠿⠟⠋⠀⠀⠀⠀⠀⠀⠀⠀
-</pre>
-</body>
-</html>
+  <div class="header">
+    <h1>SIDDHARTH S NAIR</h1>
+    <p>trial website – experimental</p>
+  </div>
+
+  <main>
+    <div class="glitch-container">
+      <img id="skullImg" class="glitch-img" src="websku.png" alt="Skull by Siddharth" draggable="false" />
+    </div>
+    <button class="action-btn" onclick="collapseSkull()">Try This!</button>
+    <section id="about">
+      <h2>About Me</h2>
+      <p>I am an ECE engineer exploring Web Development to showcase my projects!</p>
+    </section>
+  </main>
+
+  <footer>
+    &copy; <span id="year"></span> Siddharth. Crafted with ❤️
+  </footer>
+
+  <audio id="collapseSound" src="punishertitle.mp3" preload="auto"></audio>
+
+  <script>
+    function collapseSkull() {
+      const skull = document.getElementById('skullImg');
+      const sound = document.getElementById('collapseSound');
+      if (sound) {
+        sound.currentTime = 0;
+        sound.play().catch(() => {});
+      }
+      skull.style.transform = 'scale(0.9)';
+      setTimeout(() => skull.style.transform = 'scale(1)', 300);
+    }
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+
+  <!-- 3D bitstream using sprite digits -->
+  <script>
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.z = 80;
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x000000, 1);
+    const bg = document.getElementById('bg');
+    bg.appendChild(renderer.domElement);
+
+    Object.assign(renderer.domElement.style, {
+      position: 'fixed',
+      top: 0, left: 0,
+      width: '100%', height: '100%',
+      zIndex: 0,
+      pointerEvents: 'none'
+    });
+
+    function createDigitTexture(char, color = '#ff6f00') {
+      const size = 128;
+      const c = document.createElement('canvas');
+      c.width = size; c.height = size;
+      const ctx = c.getContext('2d');
+      ctx.clearRect(0, 0, size, size);
+      ctx.fillStyle = 'rgba(0,0,0,0)';
+      ctx.fillRect(0, 0, size, size);
+      ctx.fillStyle = color;
+      ctx.font = 'bold 96px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(char, size / 2, size / 2);
+      const tex = new THREE.CanvasTexture(c);
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    const tex1 = createDigitTexture('1', '#ff6f00');
+    const tex0 = createDigitTexture('0', '#ff6f00');
+
+    function makeSprite(charTex) {
+      const material = new THREE.SpriteMaterial({ map: charTex, transparent: true });
+      const sprite = new THREE.Sprite(material);
+      sprite.scale.set(4, 4, 1);
+      return sprite;
+    }
+
+    const COUNT = 300, AREA = 140, TOP = 90, BOTTOM = -90;
+    const SPEED_MIN = 0.12, SPEED_MAX = 0.35;
+
+    const sprites = [];
+    for (let i = 0; i < COUNT; i++) {
+      const tex = Math.random() > 0.5 ? tex1 : tex0;
+      const s = makeSprite(tex);
+      s.position.set(
+        (Math.random() - 0.5) * AREA,
+        Math.random() * (TOP - 10) + 10,
+        (Math.random() - 0.5) * AREA
+      );
+      s.userData.vy = -(Math.random() * (SPEED_MAX - SPEED_MIN) + SPEED_MIN);
