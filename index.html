@@ -3,196 +3,196 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Binary Dome to Vimana</title>
+  <title>SIDDHARTH S NAIR | Trial Website</title>
+  <meta name="description" content="Experimental tactical web art by Siddharth S Nair." />
+  <link rel="icon" href="websku.png" type="image/png" />
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
   <style>
+    :root {
+      --bhagva: #ff6f00;
+      --primary: #00ff99;
+      --bg: #0a0a0d;
+      --accent2: #00d4ff;
+      --font-main: 'Fira Mono', 'Menlo', 'Consolas', monospace;
+    }
+
+    html { height: 100%; background: var(--bg); }
     body {
-      margin: 0;
-      overflow: hidden;
-      background: black;
-      font-family: Arial, sans-serif;
+      min-height: 100vh; margin: 0; padding: 0;
+      font-family: var(--font-main); color: var(--primary);
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: flex-start; padding-top: 3rem;
     }
-    #ui {
-      position: absolute;
-      top: 20px;
-      width: 100%;
-      text-align: center;
-      z-index: 10;
+
+    #bg {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0; background: #000;
     }
-    button {
-      padding: 10px 20px;
-      margin: 5px;
-      font-size: 18px;
-      border-radius: 20px;
-      border: none;
-      background: #00cfff;
-      cursor: pointer;
+
+    .header, main, footer { position: relative; z-index: 1; }
+    .header { text-align: center; margin-bottom: 2rem; }
+    .header h1 { font-size: 3rem; font-weight: 900; margin: 0; color: var(--bhagva); }
+    .header p { margin: 0.5rem 0 0; font-size: 1.2rem; color: #b2ffe0; }
+
+    .action-btn {
+      display: block; margin: 1rem auto;
+      padding: 0.6rem 1.8rem; font-size: 1rem; font-weight: 600;
+      background: var(--accent2); color: #111;
+      border: none; border-radius: 1.5rem; cursor: pointer;
     }
+    .action-btn:active { transform: scale(0.95); }
+
+    #about {
+      max-width: 640px; margin: 2rem auto; padding: 1rem;
+      background: #151515; border-radius: 1rem; text-align: center;
+    }
+    #about h2 { font-size: 1.6rem; color: var(--accent2); margin-bottom: 0.5rem; }
+    #about p { font-size: 1.05rem; color: #e0ffe0; margin: 0; }
+
+    footer { text-align:center; margin: 2rem 0; font-size: 0.9rem; color:#b2ffe055; }
   </style>
 </head>
 <body>
-  <div id="ui">
-    <button id="detonate">Detonate</button>
-    <button id="reform">Reform</button>
+  <div id="bg"></div>
+
+  <div class="header">
+    <h1>SIDDHARTH S NAIR</h1>
+    <p>trial website – experimental</p>
   </div>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <main>
+    <button class="action-btn" id="transformBtn">Try This!</button>
+    <section id="about">
+      <h2>About Me</h2>
+      <p>I am an ECE engineer exploring Web Development to showcase my projects!</p>
+    </section>
+  </main>
+
+  <footer>
+    &copy; <span id="year"></span> Siddharth. Crafted with ❤️
+  </footer>
+
+  <!-- Punisher audio -->
+  <audio id="punisherSound" src="punishertitle.mp3" preload="auto"></audio>
+
   <script>
-    // Scene Setup
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // THREE.js setup
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 0, 100);
+    const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.z = 100;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias:true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+    document.getElementById('bg').appendChild(renderer.domElement);
 
-    // Binary Particles
-    const particleCount = 5000;
-    const geometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3);
-    const speeds = new Float32Array(particleCount * 3);
+    // Digit textures
+    function makeTexture(char, color){
+      const c=document.createElement("canvas"); c.width=64; c.height=64;
+      const ctx=c.getContext("2d");
+      ctx.fillStyle=color; ctx.font="bold 48px monospace";
+      ctx.textAlign="center"; ctx.textBaseline="middle";
+      ctx.fillText(char,32,32);
+      return new THREE.CanvasTexture(c);
+    }
+    const tex0g=makeTexture("0","#00ff55"), tex1g=makeTexture("1","#00ff55");
+    const tex0o=makeTexture("0","#ff8800"), tex1o=makeTexture("1","#ff8800");
 
-    // Start positions = dome-shaped
-    function generateDome() {
-      for (let i = 0; i < particleCount; i++) {
-        const phi = Math.random() * Math.PI / 2; // hemisphere
-        const theta = Math.random() * Math.PI * 2;
-        const radius = 30;
-        const x = radius * Math.sin(phi) * Math.cos(theta);
-        const y = radius * Math.cos(phi); // dome curvature
-        const z = radius * Math.sin(phi) * Math.sin(theta);
+    function makeSprite(tex){
+      const mat=new THREE.SpriteMaterial({map:tex,transparent:true});
+      const s=new THREE.Sprite(mat); s.scale.set(3,3,1); return s;
+    }
 
-        positions[i * 3] = x;
-        positions[i * 3 + 1] = y;
-        positions[i * 3 + 2] = z;
+    const COUNT=2000;
+    const sprites=[];
+    const domePos=[], templePos=[];
 
-        speeds[i * 3] = (Math.random() - 0.5) * 3;
-        speeds[i * 3 + 1] = (Math.random() - 0.5) * 3;
-        speeds[i * 3 + 2] = (Math.random() - 0.5) * 3;
+    // Build dome positions
+    for(let i=0;i<COUNT;i++){
+      const phi=Math.random()*Math.PI/2;
+      const theta=Math.random()*Math.PI*2;
+      const r=30;
+      const x=r*Math.sin(phi)*Math.cos(theta);
+      const y=r*Math.cos(phi);
+      const z=r*Math.sin(phi)*Math.sin(theta);
+      domePos.push(new THREE.Vector3(x,y,z));
+    }
+
+    // Build temple positions (tiered)
+    const tiers=10, tierHeight=4, baseRadius=25;
+    for(let t=0;t<tiers;t++){
+      const tierY=t*tierHeight;
+      const tierR=baseRadius*(1-t/tiers);
+      const cols=40-t*2;
+      for(let c=0;c<cols;c++){
+        const ang=(c/cols)*Math.PI*2;
+        const x=tierR*Math.cos(ang);
+        const z=tierR*Math.sin(ang);
+        templePos.push(new THREE.Vector3(x,tierY,z));
       }
     }
 
-    generateDome();
-    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-
-    // Material that displays 1s and 0s
-    function generateTextSprite(text="1", color="#00ff55") {
-      const canvas = document.createElement("canvas");
-      canvas.width = 64;
-      canvas.height = 64;
-      const ctx = canvas.getContext("2d");
-      ctx.fillStyle = color;
-      ctx.font = "bold 48px Arial";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(text, 32, 32);
-      return new THREE.CanvasTexture(canvas);
+    // Create sprites at dome positions
+    for(let i=0;i<COUNT;i++){
+      const tex=Math.random()>0.5?tex1g:tex0g;
+      const s=makeSprite(tex);
+      s.position.copy(domePos[i%domePos.length]);
+      sprites.push(s); scene.add(s);
     }
 
-    const textures = [
-      generateTextSprite("0", "#00ff55"),
-      generateTextSprite("1", "#00ff55")
-    ];
+    let detonated=false, reforming=false;
 
-    const material = new THREE.PointsMaterial({
-      size: 1.8,
-      map: textures[0],
-      transparent: true,
-      depthWrite: false
-    });
+    function detonate(){
+      detonated=true; reforming=false;
+      // play punisher audio
+      const sound=document.getElementById("punisherSound");
+      if(sound){ sound.currentTime=0; sound.play().catch(()=>{}); }
 
-    const points = new THREE.Points(geometry, material);
-    scene.add(points);
-
-    // Animation flags
-    let detonated = false;
-    let reforming = false;
-
-    document.getElementById("detonate").onclick = () => {
-      detonated = true;
-      reforming = false;
-    };
-
-    document.getElementById("reform").onclick = () => {
-      detonated = false;
-      reforming = true;
-      reformToVimana();
-    };
-
-    // Reform target = tiered Vimana shape
-    const targetPositions = new Float32Array(particleCount * 3);
-
-    function reformToVimana() {
-      const tiers = 10;          // number of temple tiers
-      const tierHeight = 4;      // vertical spacing
-      const baseRadius = 25;     // base width
-      let index = 0;
-
-      for (let t = 0; t < tiers; t++) {
-        const tierY = t * tierHeight;
-        const tierRadius = baseRadius * (1 - t/tiers); // tapering
-        const columns = 40 - t*2; // fewer columns at top
-
-        for (let c = 0; c < columns; c++) {
-          const angle = (c / columns) * Math.PI * 2;
-          const x = tierRadius * Math.cos(angle);
-          const z = tierRadius * Math.sin(angle);
-
-          // stack vertical column
-          const colLevels = Math.max(2, 6 - t); // fewer levels at top
-          for (let l = 0; l < colLevels; l++) {
-            if (index >= particleCount) break;
-            targetPositions[index*3] = x;
-            targetPositions[index*3+1] = tierY + l*1.5;
-            targetPositions[index*3+2] = z;
-            index++;
-          }
-        }
-      }
-
-      // Apex spire
-      for (let a = 0; a < 50 && index < particleCount; a++) {
-        targetPositions[index*3] = (Math.random()-0.5)*2;
-        targetPositions[index*3+1] = tiers*tierHeight + a*0.5;
-        targetPositions[index*3+2] = (Math.random()-0.5)*2;
-        index++;
-      }
-
-      // Switch to orange digits
-      material.map = generateTextSprite("1", "#ff8800");
+      // scatter velocities
+      sprites.forEach(s=>{
+        s.userData.v=new THREE.Vector3(
+          (Math.random()-0.5)*2,
+          (Math.random()-0.5)*2,
+          (Math.random()-0.5)*2
+        );
+      });
+      // after 5s reform
+      setTimeout(reformTemple,5000);
     }
 
-    // Animation Loop
-    function animate() {
+    function reformTemple(){
+      detonated=false; reforming=true;
+      sprites.forEach((s,i)=>{
+        s.material.map=Math.random()>0.5?tex1o:tex0o;
+        s.userData.target=templePos[i%templePos.length];
+      });
+    }
+
+    document.getElementById("transformBtn").onclick=detonate;
+
+    function animate(){
       requestAnimationFrame(animate);
-
-      const pos = geometry.attributes.position.array;
-
-      if (detonated) {
-        for (let i = 0; i < particleCount; i++) {
-          pos[i * 3] += speeds[i * 3];
-          pos[i * 3 + 1] += speeds[i * 3 + 1];
-          pos[i * 3 + 2] += speeds[i * 3 + 2];
+      sprites.forEach((s,i)=>{
+        if(detonated && s.userData.v){
+          s.position.add(s.userData.v);
+          s.userData.v.multiplyScalar(0.95);
         }
-      }
-
-      if (reforming) {
-        for (let i = 0; i < particleCount; i++) {
-          pos[i * 3] += (targetPositions[i * 3] - pos[i * 3]) * 0.05;
-          pos[i * 3 + 1] += (targetPositions[i * 3 + 1] - pos[i * 3 + 1]) * 0.05;
-          pos[i * 3 + 2] += (targetPositions[i * 3 + 2] - pos[i * 3 + 2]) * 0.05;
+        if(reforming && s.userData.target){
+          s.position.lerp(s.userData.target,0.05);
         }
-      }
-
-      geometry.attributes.position.needsUpdate = true;
-      renderer.render(scene, camera);
+      });
+      renderer.render(scene,camera);
     }
-
     animate();
 
-    window.addEventListener("resize", () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
+    window.addEventListener("resize",()=>{
+      camera.aspect=window.innerWidth/window.innerHeight;
       camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setSize(window.innerWidth,window.innerHeight);
     });
   </script>
 </body>
