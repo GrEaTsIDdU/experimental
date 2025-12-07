@@ -41,7 +41,7 @@
       overflow-x: hidden;
     }
 
-    /* Background image layer */
+    /* Background image layer with parallax */
     #bg-image {
       position: fixed;
       top: 0; left: 0;
@@ -50,6 +50,8 @@
       z-index: 0;
       opacity: 0.25; /* adjust intensity */
       pointer-events: none;
+      transform: translate3d(0,0,0);
+      will-change: transform;
     }
 
     /* WebGL canvas above image but below content */
@@ -166,6 +168,13 @@
       setTimeout(() => skull.style.transform = 'scale(1)', 300);
     }
     document.getElementById('year').textContent = new Date().getFullYear();
+
+    // Parallax effect for background image
+    window.addEventListener('scroll', () => {
+      const scrollY = window.scrollY;
+      const bgImage = document.getElementById('bg-image');
+      bgImage.style.transform = `translateY(${scrollY * 0.2}px)`; // adjust multiplier for speed
+    });
   </script>
 
   <!-- 3D bitstream using sprite digits -->
