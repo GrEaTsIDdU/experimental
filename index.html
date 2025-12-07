@@ -1,4 +1,4 @@
-<!DOCTYPE html><html><head><meta charset="utf-8"><title>Binary Temple</title><meta name="viewport" content="width=device-width,initial-scale=1">
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Binary Temple Vimana</title><meta name="viewport" content="width=device-width,initial-scale=1">
 <script src="https://unpkg.com/three@0.152.2/build/three.min.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" crossorigin="anonymous"></script>
 <style>
@@ -24,7 +24,7 @@ function sprite(map){return new THREE.Sprite(new THREE.SpriteMaterial({map:map,t
 
 // Create dome points
 const group=new THREE.Group();scene.add(group)
-const radius=70,rows=48,cols=96,digits=[],domePos=[],templePos=[]
+const radius=70,rows=48,cols=96,digits=[],domePos=[],vimanaPos=[]
 for(let i=0;i<=rows;i++){
   const v=i/rows,phi=v*Math.PI/2
   const ringR=Math.cos(phi)*radius
@@ -41,16 +41,17 @@ for(let i=0;i<=rows;i++){
   }
 }
 
-// Temple Vimana: stepped pyramid with tapering radius
+// Create vimana tiers
+const tiers=9
 for(let i=0;i<domePos.length;i++){
   const d=domePos[i]
-  const level=Math.floor((d.y/radius)*8)
-  const stepY=level*7
-  const stepR=radius*(1-level/8)*0.6
+  const level=Math.floor((d.y/radius)*tiers)
+  const tierY=level*7
+  const tierR=radius*(1-level/tiers)*0.6
   const angle=Math.atan2(d.z,d.x)
-  const x=Math.cos(angle)*stepR+(Math.random()-0.5)*1.0
-  const z=Math.sin(angle)*stepR+(Math.random()-0.5)*1.0
-  templePos.push(new THREE.Vector3(x,stepY,z))
+  const x=Math.cos(angle)*tierR+(Math.random()-0.5)*1.0
+  const z=Math.sin(angle)*tierR+(Math.random()-0.5)*1.0
+  vimanaPos.push(new THREE.Vector3(x,tierY,z))
 }
 
 function detonate(){
@@ -63,7 +64,7 @@ function detonate(){
 }
 function reform(){
   digits.forEach((s,i)=>{
-    gsap.to(s.position,{x:templePos[i].x,y:templePos[i].y,z:templePos[i].z,duration:1.6,ease:"power3.out"})
+    gsap.to(s.position,{x:vimanaPos[i].x,y:vimanaPos[i].y,z:vimanaPos[i].z,duration:1.6,ease:"power3.out"})
     s.material.map = Math.random()<0.5 ? orange1 : orange0
     s.userData.v=null
   })
