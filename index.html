@@ -230,4 +230,45 @@
         Math.random() * (TOP - 10) + 10,
         (Math.random() - 0.5) * AREA
       );
-      s.userData.vy = -(Math.random() * (SPEED
+      s.userData.vy = -(Math.random() * (SPEED_MAX - SPEED_MIN) + SPEED_MIN);
+      s.userData.vx = (Math.random() - 0.5) * 0.05;
+      s.userData.vz = (Math.random() - 0.5) * 0.05;
+      sprites.push(s);
+      scene.add(s);
+    }
+
+    scene.fog = new THREE.FogExp2(0x000000, 0.015);
+
+    let t = 0;
+    function animate() {
+      requestAnimationFrame(animate);
+      t += 0.002;
+      camera.position.x = Math.sin(t) * 5;
+      camera.position.y = Math.cos(t * 0.7) * 3;
+      camera.lookAt(0, 0, 0);
+
+      for (const s of sprites) {
+        s.position.y += s.userData.vy;
+        s.position.x += s.userData.vx * 0.5;
+        s.position.z += s.userData.vz * 0.5;
+        if (s.position.y < BOTTOM) {
+          s.position.y = TOP;
+          s.position.x = (Math.random() - 0.5) * AREA;
+          s.position.z = (Math.random() - 0.5) * AREA;
+          s.userData.vy = -(Math.random() * (SPEED_MAX - SPEED_MIN) + SPEED_MIN);
+          s.userData.vx = (Math.random() - 0.5) * 0.05;
+          s.userData.vz = (Math.random() - 0.5) * 0.05;
+        }
+      }
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
