@@ -1,151 +1,251 @@
-<!DOCTYPE html><html><head><meta charset="utf-8"><title>Binary Dome → Temple Vimana (True Columns)</title><meta name="viewport" content="width=device-width,initial-scale=1">
-<script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-<style>
-  body{margin:0;background:#06080b;overflow:hidden}
-  button{position:absolute;top:16px;padding:10px 18px;border:none;border-radius:999px;background:#00d4ff;color:#031217;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(0,212,255,.25)}
-  #d{left:calc(50% - 100px)}#r{left:calc(50% + 10px)}
-</style></head><body>
-<button id="d" onclick="detonate()">Detonate</button>
-<button id="r" onclick="reform()">Reform</button>
-<script>
-/* Scene */
-const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,3000),renderer=new THREE.WebGLRenderer({antialias:true});
-camera.position.set(0,85,300);renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(2,devicePixelRatio));renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.appendChild(renderer.domElement);
-const hemi=new THREE.HemisphereLight(0x99ffcc,0x0a0c10,.9),rim=new THREE.DirectionalLight(0xffaa22,1.1);rim.position.set(-140,90,-80);scene.add(hemi,rim);
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Binary Dome → Temple Vimana (True Columns)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <style>
+    body{margin:0;background:#06080b;overflow:hidden}
+    .ui{position:absolute;top:16px;left:50%;transform:translateX(-50%);display:flex;gap:12px}
+    button{padding:10px 18px;border:none;border-radius:999px;background:#00d4ff;color:#031217;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(0,212,255,.25)}
+  </style>
+</head>
+<body>
+  <div class="ui">
+    <button id="detonate">Detonate</button>
+    <button id="reformTemple">Reform (Temple)</button>
+    <button id="reformDome">Reform (Dome)</button>
+  </div>
+  <script>
+    // Scene
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(65, innerWidth/innerHeight, 0.1, 3000);
+    camera.position.set(0, 90, 320);
 
-/* Digit textures */
-function tex(ch,col){const s=128,c=document.createElement("canvas");c.width=s;c.height=s;const x=c.getContext("2d");x.fillStyle=col;x.font="bold 96px monospace";x.textAlign="center";x.textBaseline="middle";x.fillText(ch,s/2,s/2);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t}
-const G1=tex("1","#00ff77"),G0=tex("0","#00ff77"),O1=tex("1","#ff7a00"),O0=tex("0","#ff7a00");
-function sprite(map){return new THREE.Sprite(new THREE.SpriteMaterial({map:map,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}))}
+    const renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    document.body.appendChild(renderer.domElement);
 
-/* Group */
-const group=new THREE.Group();scene.add(group);
+    // Lights
+    const hemi = new THREE.HemisphereLight(0x99ffcc, 0x0a0c10, 0.95);
+    const rim  = new THREE.DirectionalLight(0xffaa22, 1.2);
+    rim.position.set(-160, 120, -80);
+    scene.add(hemi, rim);
 
-/* Parameters */
-const radius=115;           // larger dome
-const domeRows=84, domeCols=168; // high dome density
-const tiers=24;             // many temple tiers
-const tierHeight=6.5;       // vertical spacing per tier
-const columnLevelsBase=6;   // base vertical segments per column
-const columnSpacing=4.2;    // spacing inside each column
-const jitter=0.15;          // minimal jitter (keeps columns clean)
+    // Digit textures
+    function tex(ch, col){
+      const s = 128, c = document.createElement("canvas");
+      c.width = s; c.height = s;
+      const x = c.getContext("2d");
+      x.fillStyle = col;
+      x.font = "bold 96px monospace";
+      x.textAlign = "center";
+      x.textBaseline = "middle";
+      x.fillText(ch, s/2, s/2);
+      const t = new THREE.CanvasTexture(c);
+      t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    }
+    const G1 = tex("1", "#00ff77"), G0 = tex("0", "#00ff77");   // green
+    const O1 = tex("1", "#ff7a00"), O0 = tex("0", "#ff7a00");   // orange
 
-/* Storage */
-const digits=[], domePos=[], templePos=[];
+    function sprite(map){
+      return new THREE.Sprite(new THREE.SpriteMaterial({
+        map, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false
+      }));
+    }
 
-/* Dense hemisphere (green) — rings only, no spirals */
-for(let i=0;i<=domeRows;i++){
-  const v=i/domeRows, phi=v*Math.PI/2;
-  const ringR=Math.cos(phi)*radius;
-  const y=Math.sin(phi)*radius;
-  const ringCount=Math.max(22,Math.floor(domeCols*Math.cos(phi)));
-  for(let j=0;j<ringCount;j++){
-    const u=j/ringCount, theta=u*2*Math.PI;
-    const x=Math.cos(theta)*ringR, z=Math.sin(theta)*ringR;
-    const pos=new THREE.Vector3(x+(Math.random()-0.5)*jitter,y+(Math.random()-0.5)*jitter,z+(Math.random()-0.5)*jitter);
-    const s=sprite(Math.random()<0.5?G1:G0);
-    const depth=pos.length(), scale=1.65-0.55*Math.min(1,depth/(radius*1.25));
-    s.scale.set(scale,scale,1);
-    s.material.opacity=0.50+0.45*Math.exp(-Math.abs(y)/radius*0.85);
-    s.position.copy(pos);
-    group.add(s); digits.push(s); domePos.push(pos.clone());
-  }
-}
+    // Group
+    const group = new THREE.Group();
+    scene.add(group);
 
-/* Temple vimana — true vertical columns on tapered rectangular/octagonal footprints */
-(function buildTemple(){
-  const N=domePos.length, positions=[];
-  for(let lvl=0; lvl<tiers; lvl++){
-    const t=1 - (lvl/(tiers-1));                 // 1→0
-    const scale=0.90*Math.pow(t,0.92);            // strong taper
-    const width=radius*0.95*scale;                // x extent
-    const depth=radius*0.75*scale;                // z extent
-    const yBase=lvl*tierHeight;
+    // Parameters (dense, large, precise)
+    const radius = 120;               // base dome radius
+    const domeRows = 90, domeCols = 180; // dome density
+    const tiers = 26;                  // temple tiers
+    const tierHeight = 7;              // vertical spacing per tier
+    const columnSpacing = 4.4;         // vertical spacing inside each column
+    const columnLevelsBase = 7;        // base vertical segments per column
+    const jitter = 0.12;               // minimal jitter (keeps columns clean)
 
-    // grid resolution per tier (tapers with scale)
-    const nx=Math.max(8, Math.round(34*scale));
-    const nz=Math.max(8, Math.round(28*scale));
+    // Storage
+    const digits = [];
+    const domePos = [];
+    const templePos = [];
 
-    for(let ix=0; ix<nx; ix++){
-      const fx=ix/(nx-1)*2-1;                     // -1..1
-      const x=fx*width;
-      for(let iz=0; iz<nz; iz++){
-        const fz=iz/(nz-1)*2-1;                   // -1..1
-        const z=fz*depth;
+    // Build ultra-dense GREEN hemisphere dome (true rings, no spirals)
+    for(let i=0; i<=domeRows; i++){
+      const v = i / domeRows;
+      const phi = v * Math.PI / 2;                  // 0..pi/2 hemisphere
+      const ringR = Math.cos(phi) * radius;
+      const y = Math.sin(phi) * radius;
+      const ringCount = Math.max(24, Math.floor(domeCols * Math.cos(phi)));
+      for(let j=0; j<ringCount; j++){
+        const u = j / ringCount;
+        const theta = u * 2 * Math.PI;
+        const x = Math.cos(theta) * ringR;
+        const z = Math.sin(theta) * ringR;
 
-        // octagonal chamfer mask (keeps silhouette temple-like, not boxy)
-        const ax=Math.abs(fx), az=Math.abs(fz);
-        const octMask = (ax+az <= 1.25);          // inside octagon-ish
-        if(!octMask) continue;
+        const pos = new THREE.Vector3(
+          x + (Math.random()-0.5) * jitter,
+          y + (Math.random()-0.5) * jitter,
+          z + (Math.random()-0.5) * jitter
+        );
 
-        // vertical column: more levels at lower tiers, fewer at top
-        const columnLevels = Math.max(2, Math.round(columnLevelsBase * (0.6 + 0.4*t)));
-        for(let c=0; c<columnLevels; c++){
-          const yy=yBase + c*columnSpacing;
-          positions.push(new THREE.Vector3(
-            x + (Math.random()-0.5)*jitter,
-            yy,
-            z + (Math.random()-0.5)*jitter
-          ));
-        }
+        const s = sprite(Math.random() < 0.5 ? G1 : G0);
+        const depth = pos.length();
+        const scale = 1.65 - 0.55 * Math.min(1, depth/(radius*1.25));
+        s.scale.set(scale, scale, 1);
+        s.material.opacity = 0.60; // keep high so it's clearly visible
+        s.position.copy(pos);
+
+        group.add(s);
+        digits.push(s);
+        domePos.push(pos.clone());
       }
     }
-  }
 
-  // Apex kalasha: stacked tight columns near center (no rings)
-  const apexLevels=28;
-  for(let k=0;k<apexLevels;k++){
-    const yy = tiers*tierHeight + k*(columnSpacing*0.75);
-    const spread = Math.max(1.8, 7*Math.pow(1 - k/(apexLevels-1),1.25));
-    const count = 18;
-    for(let j=0;j<count;j++){
-      const ang=j/count*2*Math.PI;
-      const x=Math.cos(ang)*spread*0.35;
-      const z=Math.sin(ang)*spread*0.35;
-      positions.push(new THREE.Vector3(x,y y,z));
+    // Build temple vimana — true vertical columns on tapered octagonal footprints
+    (function buildTemple(){
+      const N = domePos.length;
+      const positions = [];
+
+      for(let lvl=0; lvl<tiers; lvl++){
+        const tNorm = 1 - (lvl/(tiers-1));         // 1 → 0
+        const scale = 0.92 * Math.pow(tNorm, 0.92); // strong taper
+        const width = radius * 0.95 * scale;        // x extent
+        const depth = radius * 0.75 * scale;        // z extent
+        const yBase = lvl * tierHeight;
+
+        // grid resolution per tier (tapers with scale)
+        const nx = Math.max(10, Math.round(36 * scale));
+        const nz = Math.max(10, Math.round(30 * scale));
+
+        for(let ix=0; ix<nx; ix++){
+          const fx = ix/(nx-1) * 2 - 1;            // -1..1
+          const x = fx * width;
+
+          for(let iz=0; iz<nz; iz++){
+            const fz = iz/(nz-1) * 2 - 1;          // -1..1
+            const z = fz * depth;
+
+            // octagonal chamfer mask (temple-like silhouette)
+            const ax = Math.abs(fx), az = Math.abs(fz);
+            const octMask = (ax + az <= 1.25);
+            if(!octMask) continue;
+
+            // vertical column: more levels at lower tiers, fewer at top
+            const columnLevels = Math.max(2, Math.round(columnLevelsBase * (0.55 + 0.45*tNorm)));
+            for(let c=0; c<columnLevels; c++){
+              const yy = yBase + c * columnSpacing;
+              positions.push(new THREE.Vector3(
+                x + (Math.random()-0.5) * jitter,
+                yy,
+                z + (Math.random()-0.5) * jitter
+              ));
+            }
+          }
+        }
+      }
+
+      // Apex kalasha: tight stacked cluster near center (no rings)
+      const apexLevels = 30;
+      for(let k=0; k<apexLevels; k++){
+        const yy = tiers*tierHeight + k * (columnSpacing * 0.75);
+        const spread = Math.max(1.6, 6.5 * Math.pow(1 - k/(apexLevels-1), 1.25));
+        const count = 24;
+        for(let j=0; j<count; j++){
+          const ang = j/count * 2 * Math.PI;
+          const x = Math.cos(ang) * spread * 0.35;
+          const z = Math.sin(ang) * spread * 0.35;
+          positions.push(new THREE.Vector3(x, yy, z));
+        }
+      }
+
+      // Normalize count to digits
+      if(positions.length >= N) {
+        templePos.push(...positions.slice(0, N));
+      } else {
+        templePos.push(...positions);
+        let idx = 0;
+        while(templePos.length < N){
+          templePos.push(positions[idx++ % positions.length]);
+        }
+      }
+    })();
+
+    // Controls
+    function detonate(){
+      digits.forEach(s=>{
+        const outward = s.position.clone().normalize();
+        const rnd = new THREE.Vector3(Math.random()-0.5, Math.random()-0.5, Math.random()-0.5).normalize();
+        s.userData.v = outward.multiplyScalar(30 * (0.6 + Math.random()))
+                         .add(rnd.multiplyScalar(38 * (0.4 + Math.random())));
+      });
     }
-  }
+    function reformTemple(){
+      digits.forEach((s,i)=>{
+        s.material.map = (Math.random()<0.5) ? O1 : O0; // switch to orange
+        gsap.to(s.position, {
+          x: templePos[i].x, y: templePos[i].y, z: templePos[i].z,
+          duration: 2.2, ease: "power3.out"
+        });
+        s.userData.v = null;
+        s.material.opacity = 0.95;
+      });
+    }
+    function reformDome(){
+      digits.forEach((s,i)=>{
+        s.material.map = (Math.random()<0.5) ? G1 : G0; // switch back to green
+        gsap.to(s.position, {
+          x: domePos[i].x, y: domePos[i].y, z: domePos[i].z,
+          duration: 2.0, ease: "power3.out"
+        });
+        s.userData.v = null;
+        s.material.opacity = 0.85;
+      });
+    }
 
-  // Normalize count to digits
-  if(positions.length>=N) templePos.push(...positions.slice(0,N));
-  else { templePos.push(...positions); let idx=0; while(templePos.length<N){ templePos.push(positions[idx++ % positions.length]); } }
-})();
+    // Hook buttons
+    document.getElementById("detonate").onclick = detonate;
+    document.getElementById("reformTemple").onclick = reformTemple;
+    document.getElementById("reformDome").onclick = reformDome;
 
-/* Detonate: randomized burst paths */
-function detonate(){
-  digits.forEach(s=>{
-    const outward=s.position.clone().normalize();
-    const rnd=new THREE.Vector3(Math.random()-0.5,Math.random()-0.5,Math.random()-0.5).normalize();
-    s.userData.v = outward.multiplyScalar(28*(0.6+Math.random())).add(rnd.multiplyScalar(36*(0.4+Math.random())));
-  });
-}
+    // Loop
+    let t = 0;
+    function animate(){
+      requestAnimationFrame(animate);
+      t += 0.01;
+      group.rotation.y = Math.sin(t*0.28) * 0.12;
+      group.rotation.x = Math.cos(t*0.20) * 0.05;
 
-/* Reform: map to temple columns and swap to orange digits */
-function reform(){
-  digits.forEach((s,i)=>{
-    s.material.map = (Math.random()<0.5) ? O1 : O0;
-    gsap.to(s.position,{x:templePos[i].x,y:templePos[i].y,z:templePos[i].z,duration:2.1,ease:"power3.out"});
-    s.userData.v=null;
-  });
-}
+      const dt = 0.016;
+      digits.forEach(s=>{
+        const v = s.userData.v;
+        if(v){
+          s.position.addScaledVector(v, dt);
+          v.multiplyScalar(0.984);
+          s.material.opacity = Math.max(0.35, s.material.opacity * 0.992);
+        }
+      });
 
-/* Loop */
-let t=0;
-function animate(){
-  requestAnimationFrame(animate); t+=0.01;
-  group.rotation.y = Math.sin(t*0.28)*0.12;
-  group.rotation.x = Math.cos(t*0.20)*0.05;
-  const dt=0.016;
-  digits.forEach(s=>{
-    const v=s.userData.v;
-    if(v){ s.position.addScaledVector(v,dt); v.multiplyScalar(0.984); s.material.opacity=Math.max(0.30, s.material.opacity*0.992); }
-    else{ s.material.opacity=Math.min(0.98, s.material.opacity+0.002); }
-  });
-  renderer.render(scene,camera);
-}
-animate();
+      renderer.render(scene, camera);
+    }
+    animate();
 
-/* Resize */
-onresize=()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)};
-</script></body></html>
+    // Resize
+    onresize = () => {
+      camera.aspect = innerWidth/innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    };
+
+    // Sanity log
+    console.log("Digits:", digits.length, "Dome points:", domePos.length, "Temple points:", templePos.length);
+  </script>
+</body>
+</html>
