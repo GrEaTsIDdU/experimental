@@ -1,12 +1,53 @@
-<!DOCTYPE html><html><head><meta charset="utf-8"><title>Binary Burst</title><meta name="viewport" content="width=device-width,initial-scale=1"><script src="https://unpkg.com/three@0.152.2/build/three.min.js" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" crossorigin="anonymous"></script><style>body{margin:0;background:#000;overflow:hidden}button{position:absolute;top:16px;padding:10px 18px;border:none;border-radius:999px;background:#00d4ff;color:#031217;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(0,212,255,.25)}#d{left:calc(50% - 80px)}#r{left:calc(50% + 10px)}</style></head><body>
-<button id="d" onclick="explode()">Detonate</button><button id="r" onclick="reform()">Reform</button><script>
-const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,.1,1000),renderer=new THREE.WebGLRenderer({antialias:true});camera.position.z=100;renderer.setSize(innerWidth,innerHeight);document.body.appendChild(renderer.domElement)
-function tex(ch){const s=128,c=document.createElement("canvas");c.width=s;c.height=s;const x=c.getContext("2d");x.fillStyle="#0ff";x.font="bold 96px monospace";x.textAlign="center";x.textBaseline="middle";x.fillText(ch,s/2,s/2);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t}
-const t1=tex("1"),t0=tex("0"),group=new THREE.Group();scene.add(group)
-const size=40,step=4,sprites=[],home=[]
-for(let x=-size;x<=size;x+=step)for(let y=-size;y<=size;y+=step)for(let z=-size;z<=size;z+=step){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:(x+y+z)%2?t1:t0,transparent:true,blending:THREE.AdditiveBlending}));s.scale.set(1.5,1.5,1);s.position.set(x,y,z);group.add(s);sprites.push(s);home.push(s.position.clone())}
-function explode(){sprites.forEach(s=>{s.userData.v=new THREE.Vector3(Math.random()-.5,Math.random()-.5,Math.random()-.5).normalize().multiplyScalar(40*(.5+Math.random()))})}
-function reform(){sprites.forEach((s,i)=>{gsap.to(s.position,{x:home[i].x,y:home[i].y,z:home[i].z,duration:1.5,ease:"power3.out"});s.userData.v=null})}
-function animate(){requestAnimationFrame(animate);group.rotation.y+=.002;sprites.forEach(s=>{if(s.userData.v){s.position.addScaledVector(s.userData.v,.016);s.userData.v.multiplyScalar(.98)}});renderer.render(scene,camera)}
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Binary Skull</title><meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://unpkg.com/three@0.152.2/build/three.min.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" crossorigin="anonymous"></script>
+<style>
+body{margin:0;background:#000;overflow:hidden}
+button{position:absolute;top:16px;padding:10px 18px;border:none;border-radius:999px;background:#00d4ff;color:#031217;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(0,212,255,.25)}
+#d{left:calc(50% - 80px)}#r{left:calc(50% + 10px)}
+</style></head><body>
+<button id="d" onclick="detonate()">Detonate</button>
+<button id="r" onclick="reform()">Reform</button>
+<script>
+const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,1500),renderer=new THREE.WebGLRenderer({antialias:true})
+camera.position.set(0,10,140);renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(2,devicePixelRatio));renderer.outputColorSpace=THREE.SRGBColorSpace
+document.body.appendChild(renderer.domElement)
+const hemi=new THREE.HemisphereLight(0x99bbff,0x0a0c10,.7),rim=new THREE.DirectionalLight(0x22ffaa,1.1);rim.position.set(-120,60,-60);scene.add(hemi,rim)
+
+// texture generator for digits
+function tex(ch,col){const s=128,c=document.createElement("canvas");c.width=s;c.height=s;const x=c.getContext("2d")
+x.fillStyle=col;x.font="bold 96px monospace";x.textAlign="center";x.textBaseline="middle";x.fillText(ch,s/2,s/2)
+const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t}
+const t1=tex("1","#00e9ff"),t0=tex("0","#ff7b00")
+
+function spr(map){return new THREE.Sprite(new THREE.SpriteMaterial({map:map,transparent:true,blending:THREE.AdditiveBlending}))}
+
+// skull shape via signed distance field
+function sdf(p){const e=(x,y,z,a,b,c)=>Math.sqrt((x*x)/(a*a)+(y*y)/(b*b)+(z*z)/(c*c))-1
+const r=(x,y,z,q)=>Math.sqrt(x*x+y*y+z*z)-q
+const b=(x,y,z,ax,ay,az)=>Math.max(Math.max(Math.abs(x)-ax,Math.abs(y)-ay),Math.abs(z)-az)
+const q=p.clone(),cy=Math.cos(.18),sy=Math.sin(.18),yy=q.y*cy-q.z*sy,zz=q.y*sy+q.z*cy;q.y=yy;q.z=zz
+let d=e(q.x*.92,(q.y+10),q.z,22,24,20)
+const j=b(q.x,(q.y-6),q.z*.9,14,6,10);d=Math.min(d,j)
+const el=r(q.x+8,q.y+6,q.z-3,6.5),er=r(q.x-8,q.y+6,q.z-3,6.5);d=Math.max(d,-el*.85);d=Math.max(d,-er*.85)
+const no=r(q.x,q.y,q.z-2,5.2);d=Math.max(d,-no*.75)
+const cl=r(q.x+12,q.y+2,q.z+2,9),cr=r(q.x-12,q.y+2,q.z+2,9);d=Math.min(d,cl-3);d=Math.min(d,cr-3)
+const te=b(q.x,q.y-10,q.z,12,1.3,8);d=Math.max(d,-te*.7)
+return d}
+
+// sample points in skull
+function pts(n){const a=[];let k=0;while(a.length<n&&k<n*80){k++
+const p=new THREE.Vector3((Math.random()-.5)*62,(Math.random()-.3)*64,(Math.random()-.5)*62)
+const d=sdf(p);if(Math.abs(d)<.7){p.addScaledVector(new THREE.Vector3(Math.random()-.5,Math.random()-.5,Math.random()-.5).normalize(),.6*Math.random());a.push(p)}}return a}
+
+const skull=new THREE.Group();scene.add(skull)
+const P=pts(3200),S=[],O=[]
+for(let i=0;i<P.length;i++){const s=spr(Math.random()<.5?t1:t0);s.scale.set(1.6,1.6,1);s.position.copy(P[i]);s.material.opacity=.95;skull.add(s);S.push(s);O.push(P[i].clone())}
+
+function detonate(){S.forEach(s=>{s.userData.v=new THREE.Vector3(Math.random()-.5,Math.random()-.5,Math.random()-.5).normalize().multiplyScalar(40*(.5+Math.random()))})}
+function reform(){S.forEach((s,i)=>{gsap.to(s.position,{x:O[i].x,y:O[i].y,z:O[i].z,duration:1.5,ease:"power3.out"});s.userData.v=null})}
+
+function animate(){requestAnimationFrame(animate);skull.rotation.y+=.002;S.forEach(s=>{if(s.userData.v){s.position.addScaledVector(s.userData.v,.016);s.userData.v.multiplyScalar(.98)}});renderer.render(scene,camera)}
 animate()
+onresize=()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)}
 </script></body></html>
