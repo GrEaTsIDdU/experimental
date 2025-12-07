@@ -2,93 +2,128 @@
 <script src="https://unpkg.com/three@0.152.2/build/three.min.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" crossorigin="anonymous"></script>
 <style>
-body{margin:0;background:#06080b;overflow:hidden}
-button{position:absolute;top:16px;padding:10px 18px;border:none;border-radius:999px;background:#00d4ff;color:#031217;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(0,212,255,.25)}
-#d{left:calc(50% - 80px)}#r{left:calc(50% + 10px)}
+  body{margin:0;background:#06080b;overflow:hidden}
+  button{position:absolute;top:16px;padding:10px 18px;border:none;border-radius:999px;background:#00d4ff;color:#031217;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(0,212,255,.25)}
+  #d{left:calc(50% - 90px)}#r{left:calc(50% + 10px)}
 </style></head><body>
 <button id="d" onclick="detonate()">Detonate</button>
 <button id="r" onclick="reform()">Reform</button>
 <script>
-const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,1500),renderer=new THREE.WebGLRenderer({antialias:true})
-camera.position.set(0,40,180);renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(2,devicePixelRatio));renderer.outputColorSpace=THREE.SRGBColorSpace
-document.body.appendChild(renderer.domElement)
-const hemi=new THREE.HemisphereLight(0x99ffcc,0x0a0c10,.8),rim=new THREE.DirectionalLight(0xffaa22,1.0);rim.position.set(-120,60,-60);scene.add(hemi,rim)
+/* Scene */
+const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,2000),renderer=new THREE.WebGLRenderer({antialias:true});
+camera.position.set(0,50,220);renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(2,devicePixelRatio));renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.appendChild(renderer.domElement);
+const hemi=new THREE.HemisphereLight(0x99ffcc,0x0a0c10,.9),rim=new THREE.DirectionalLight(0xffaa22,1.1);rim.position.set(-120,80,-60);scene.add(hemi,rim);
 
-// Digit textures
-function tex(ch,col){const s=128,c=document.createElement("canvas");c.width=s;c.height=s;const x=c.getContext("2d")
-x.fillStyle=col;x.font="bold 96px monospace";x.textAlign="center";x.textBaseline="middle";x.fillText(ch,s/2,s/2)
-const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t}
-const green1=tex("1","#00ff88"),green0=tex("0","#00ff88")
-const orange1=tex("1","#ff8800"),orange0=tex("0","#ff8800")
+/* Digit textures */
+function tex(ch,col){const s=128,c=document.createElement("canvas");c.width=s;c.height=s;const x=c.getContext("2d");x.fillStyle=col;x.font="bold 96px SFMono-Regular,Consolas,monospace";x.textAlign="center";x.textBaseline="middle";x.fillText(ch,s/2,s/2);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t}
+const G1=tex("1","#00ff88"),G0=tex("0","#00ff88"),O1=tex("1","#ff8800"),O0=tex("0","#ff8800");
 function sprite(map){return new THREE.Sprite(new THREE.SpriteMaterial({map:map,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}))}
 
-// Create dome points
-const group=new THREE.Group();scene.add(group)
-const radius=70,rows=48,cols=96,digits=[],domePos=[],vimanaPos=[]
-for(let i=0;i<=rows;i++){
-  const v=i/rows,phi=v*Math.PI/2
-  const ringR=Math.cos(phi)*radius
-  const y=Math.sin(phi)*radius
-  const ringCount=Math.max(12,Math.floor(cols*Math.cos(phi)))
+/* Groups */
+const group=new THREE.Group();scene.add(group);
+
+/* Parameters (dense, large) */
+const radius=85;            // base radius for dome and temple
+const domeRows=56, domeCols=112; // dome density
+const tiers=18;             // vimana tiers (more tiers => more obvious temple)
+const tierHeight=6;         // vertical spacing per tier
+const apexExtra=12;         // apex spire height
+const ringJitter=0.5;       // small jitter so it feels organic
+
+/* Storage */
+const digits=[], homeDome=[], posTemple=[];
+
+/* Build a green hemisphere dome (true geodesic rings) */
+for(let i=0;i<=domeRows;i++){
+  const v=i/domeRows, phi=v*Math.PI/2;                    // 0..pi/2 hemisphere
+  const ringR=Math.cos(phi)*radius;
+  const y=Math.sin(phi)*radius;
+  const ringCount=Math.max(16,Math.floor(domeCols*Math.cos(phi))); // more points near base
   for(let j=0;j<ringCount;j++){
-    const u=j/ringCount,theta=u*2*Math.PI
-    const x=Math.cos(theta)*ringR, z=Math.sin(theta)*ringR
-    const pos=new THREE.Vector3(x+(Math.random()-0.5)*0.6,y+(Math.random()-0.5)*0.6,z+(Math.random()-0.5)*0.6)
-    const s=sprite(Math.random()<0.5?green1:green0)
-    const depth=pos.length(),scale=1.6-0.5*Math.min(1,depth/(radius*1.2))
-    s.scale.set(scale,scale,1);s.material.opacity=0.35+0.55*Math.exp(-Math.abs(y)/radius*0.8)
-    s.position.copy(pos);group.add(s);digits.push(s);domePos.push(pos.clone())
+    const u=j/ringCount, theta=u*2*Math.PI;
+    const x=Math.cos(theta)*ringR, z=Math.sin(theta)*ringR;
+    const pos=new THREE.Vector3(
+      x+(Math.random()-0.5)*ringJitter,
+      y+(Math.random()-0.5)*ringJitter,
+      z+(Math.random()-0.5)*ringJitter
+    );
+    const s=sprite(Math.random()<0.5?G1:G0);
+    const depth=pos.length(), scale=1.65-0.55*Math.min(1,depth/(radius*1.25));
+    s.scale.set(scale,scale,1);
+    s.material.opacity=0.40+0.55*Math.exp(-Math.abs(y)/radius*0.8);
+    s.position.copy(pos);
+    group.add(s); digits.push(s); homeDome.push(pos.clone());
   }
 }
 
-// Create vimana tiers
-const tiers=9
-for(let i=0;i<domePos.length;i++){
-  const d=domePos[i]
-  const level=Math.floor((d.y/radius)*tiers)
-  const tierY=level*7
-  const tierR=radius*(1-level/tiers)*0.6
-  const angle=Math.atan2(d.z,d.x)
-  const x=Math.cos(angle)*tierR+(Math.random()-0.5)*1.0
-  const z=Math.sin(angle)*tierR+(Math.random()-0.5)*1.0
-  vimanaPos.push(new THREE.Vector3(x,tierY,z))
+/* Create an orange temple vimana target made of concentric rings per tier (clear cone with rings) */
+const totalPoints=homeDome.length;
+for(let i=0;i<totalPoints;i++){
+  // Map each dome point to a tier by its normalized height
+  const d=homeDome[i];
+  const normY=Math.min(1, Math.max(0, d.y/(radius))); // 0..1
+  const level=Math.floor(normY*(tiers-1));            // 0..tiers-1
+  const y = level*tierHeight;                         // vertical placement
+  // Radius tapers per tier (true vimana cone)
+  const taper = 1 - (level/(tiers-1));                // 1..0
+  const r = Math.max(6, radius * 0.7 * Math.pow(taper, 0.95)); // smooth taper
+  // Use dome angle to distribute evenly around the ring
+  const ang = Math.atan2(d.z, d.x);
+  const x = Math.cos(ang)*r + (Math.random()-0.5)*ringJitter;
+  const z = Math.sin(ang)*r + (Math.random()-0.5)*ringJitter;
+  posTemple.push(new THREE.Vector3(x,y,z));
 }
 
+/* Add apex spire as extra points (reuse some highest indices) */
+const apexCount=Math.min(400, Math.floor(totalPoints*0.02));
+for(let k=0;k<apexCount;k++){
+  const i=totalPoints-1-k;
+  if(i>=0){
+    const base=posTemple[i];
+    posTemple[i]=new THREE.Vector3(base.x*0.25, tiers*tierHeight + (k/apexCount)*apexExtra, base.z*0.25);
+  }
+}
+
+/* Controls */
 function detonate(){
   digits.forEach(s=>{
-    const outward=s.position.clone().normalize()
-    const rnd=new THREE.Vector3(Math.random()-0.5,Math.random()-0.5,Math.random()-0.5).normalize()
-    const v=outward.multiplyScalar(20*(0.6+Math.random())).add(rnd.multiplyScalar(26*(0.4+Math.random())))
-    s.userData.v=v
-  })
+    const outward=s.position.clone().normalize();
+    const rnd=new THREE.Vector3(Math.random()-0.5,Math.random()-0.5,Math.random()-0.5).normalize();
+    const v=outward.multiplyScalar(24*(0.6+Math.random())).add(rnd.multiplyScalar(30*(0.4+Math.random())));
+    s.userData.v=v;
+  });
 }
 function reform(){
   digits.forEach((s,i)=>{
-    gsap.to(s.position,{x:vimanaPos[i].x,y:vimanaPos[i].y,z:vimanaPos[i].z,duration:1.6,ease:"power3.out"})
-    s.material.map = Math.random()<0.5 ? orange1 : orange0
-    s.userData.v=null
-  })
+    // color swap to orange for temple
+    s.material.map = (Math.random()<0.5) ? O1 : O0;
+    gsap.to(s.position,{x:posTemple[i].x,y:posTemple[i].y,z:posTemple[i].z,duration:1.8,ease:"power3.out"});
+    s.userData.v=null;
+  });
 }
 
-let t=0
+/* Loop */
+let t=0;
 function animate(){
-  requestAnimationFrame(animate)
-  t+=0.01
-  group.rotation.y=Math.sin(t*0.4)*0.14
-  group.rotation.x=Math.cos(t*0.3)*0.06
-  const dt=0.016
+  requestAnimationFrame(animate);
+  t+=0.01;
+  group.rotation.y = Math.sin(t*0.35)*0.14;
+  group.rotation.x = Math.cos(t*0.28)*0.06;
+  const dt=0.016;
   digits.forEach(s=>{
-    const v=s.userData.v
+    const v=s.userData.v;
     if(v){
-      s.position.addScaledVector(v,dt)
-      v.multiplyScalar(0.984)
-      s.material.opacity=Math.max(0.22, s.material.opacity*0.992)
+      s.position.addScaledVector(v,dt);
+      v.multiplyScalar(0.984);
+      s.material.opacity=Math.max(0.24, s.material.opacity*0.992);
     }else{
-      s.material.opacity=Math.min(0.95, s.material.opacity+0.002)
+      s.material.opacity=Math.min(0.96, s.material.opacity+0.002);
     }
-  })
-  renderer.render(scene,camera)
+  });
+  renderer.render(scene,camera);
 }
-animate()
-onresize=()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)}
+animate();
+
+/* Resize */
+onresize=()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)};
 </script></body></html>
