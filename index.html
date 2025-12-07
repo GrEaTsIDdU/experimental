@@ -39,7 +39,7 @@
     // Scene Setup
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 0, 80);
+    camera.position.set(0, 0, 100);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -50,20 +50,15 @@
     const geometry = new THREE.BufferGeometry();
     const positions = new Float32Array(particleCount * 3);
     const speeds = new Float32Array(particleCount * 3);
-    const binary = [];
-
-    function randomBinary() {
-      return Math.random() > 0.5 ? 1 : 0;
-    }
 
     // Start positions = dome-shaped
     function generateDome() {
       for (let i = 0; i < particleCount; i++) {
-        const phi = Math.random() * Math.PI; // angle
+        const phi = Math.random() * Math.PI / 2; // hemisphere
         const theta = Math.random() * Math.PI * 2;
         const radius = 30;
         const x = radius * Math.sin(phi) * Math.cos(theta);
-        const y = Math.abs(radius * Math.cos(phi));
+        const y = radius * Math.cos(phi); // dome curvature
         const z = radius * Math.sin(phi) * Math.sin(theta);
 
         positions[i * 3] = x;
@@ -73,8 +68,6 @@
         speeds[i * 3] = (Math.random() - 0.5) * 3;
         speeds[i * 3 + 1] = (Math.random() - 0.5) * 3;
         speeds[i * 3 + 2] = (Math.random() - 0.5) * 3;
-
-        binary[i] = randomBinary();
       }
     }
 
@@ -82,9 +75,7 @@
     geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
 
     // Material that displays 1s and 0s
-    const sprite = new THREE.CanvasTexture(generateTextSprite());
-
-    function generateTextSprite(color = "#00ff55") {
+    function generateTextSprite(text="1", color="#00ff55") {
       const canvas = document.createElement("canvas");
       canvas.width = 64;
       canvas.height = 64;
@@ -93,13 +84,18 @@
       ctx.font = "bold 48px Arial";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(Math.random() > 0.5 ? "1" : "0", 32, 32);
-      return canvas;
+      ctx.fillText(text, 32, 32);
+      return new THREE.CanvasTexture(canvas);
     }
+
+    const textures = [
+      generateTextSprite("0", "#00ff55"),
+      generateTextSprite("1", "#00ff55")
+    ];
 
     const material = new THREE.PointsMaterial({
       size: 1.8,
-      map: sprite,
+      map: textures[0],
       transparent: true,
       depthWrite: false
     });
@@ -119,25 +115,50 @@
     document.getElementById("reform").onclick = () => {
       detonated = false;
       reforming = true;
-      material.map = new THREE.CanvasTexture(generateTextSprite("#ff8800"));
       reformToVimana();
     };
 
-    // Reform target = Vimana shape
+    // Reform target = tiered Vimana shape
     const targetPositions = new Float32Array(particleCount * 3);
 
     function reformToVimana() {
-      for (let i = 0; i < particleCount; i++) {
-        const height = Math.random() * 40;
-        const radius = (40 - height) * 0.5;
-        const angle = Math.random() * Math.PI * 2;
-        const x = radius * Math.cos(angle);
-        const y = height;
-        const z = radius * Math.sin(angle);
-        targetPositions[i * 3] = x;
-        targetPositions[i * 3 + 1] = y;
-        targetPositions[i * 3 + 2] = z;
+      const tiers = 10;          // number of temple tiers
+      const tierHeight = 4;      // vertical spacing
+      const baseRadius = 25;     // base width
+      let index = 0;
+
+      for (let t = 0; t < tiers; t++) {
+        const tierY = t * tierHeight;
+        const tierRadius = baseRadius * (1 - t/tiers); // tapering
+        const columns = 40 - t*2; // fewer columns at top
+
+        for (let c = 0; c < columns; c++) {
+          const angle = (c / columns) * Math.PI * 2;
+          const x = tierRadius * Math.cos(angle);
+          const z = tierRadius * Math.sin(angle);
+
+          // stack vertical column
+          const colLevels = Math.max(2, 6 - t); // fewer levels at top
+          for (let l = 0; l < colLevels; l++) {
+            if (index >= particleCount) break;
+            targetPositions[index*3] = x;
+            targetPositions[index*3+1] = tierY + l*1.5;
+            targetPositions[index*3+2] = z;
+            index++;
+          }
+        }
       }
+
+      // Apex spire
+      for (let a = 0; a < 50 && index < particleCount; a++) {
+        targetPositions[index*3] = (Math.random()-0.5)*2;
+        targetPositions[index*3+1] = tiers*tierHeight + a*0.5;
+        targetPositions[index*3+2] = (Math.random()-0.5)*2;
+        index++;
+      }
+
+      // Switch to orange digits
+      material.map = generateTextSprite("1", "#ff8800");
     }
 
     // Animation Loop
@@ -156,9 +177,9 @@
 
       if (reforming) {
         for (let i = 0; i < particleCount; i++) {
-          pos[i * 3] += (targetPositions[i * 3] - pos[i * 3]) * 0.02;
-          pos[i * 3 + 1] += (targetPositions[i * 3 + 1] - pos[i * 3 + 1]) * 0.02;
-          pos[i * 3 + 2] += (targetPositions[i * 3 + 2] - pos[i * 3 + 2]) * 0.02;
+          pos[i * 3] += (targetPositions[i * 3] - pos[i * 3]) * 0.05;
+          pos[i * 3 + 1] += (targetPositions[i * 3 + 1] - pos[i * 3 + 1]) * 0.05;
+          pos[i * 3 + 2] += (targetPositions[i * 3 + 2] - pos[i * 3 + 2]) * 0.05;
         }
       }
 
