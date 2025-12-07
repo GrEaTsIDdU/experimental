@@ -2,16 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>ASCII Skull</title>
+  <title>3D ASCII Skull</title>
   <style>
-    body {
-      margin: 0;
-      background: black;
-      overflow: hidden;
-    }
-    canvas {
-      display: block;
-    }
+    body { margin: 0; background: black; overflow: hidden; }
+    canvas { display: block; }
   </style>
 </head>
 <body>
@@ -19,12 +13,13 @@
   <script>
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
-    camera.position.z = 100;
+    camera.position.set(0, 0, 120);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
+    // ASCII textures
     function makeCharTexture(char, color="#00ff99") {
       const canvas = document.createElement("canvas");
       canvas.width = 64; canvas.height = 64;
@@ -39,43 +34,57 @@
 
     const textures = [
       makeCharTexture("0"), makeCharTexture("1"),
-      makeCharTexture("#"), makeCharTexture("@"),
-      makeCharTexture("X"), makeCharTexture(" ")
+      makeCharTexture("@"), makeCharTexture("#"),
+      makeCharTexture("X")
     ];
 
-    function makeSprite(tex) {
-      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+    function makeSprite(tex, opacity=1) {
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity });
       const sprite = new THREE.Sprite(mat);
       sprite.scale.set(2.5, 2.5, 1);
       return sprite;
     }
 
     const skullSprites = [];
-    const skullWidth = 60, skullHeight = 80;
+    const skullWidth = 60, skullHeight = 80, skullDepth = 20;
 
-    for (let y = 0; y < skullHeight; y++) {
-      for (let x = 0; x < skullWidth; x++) {
-        const nx = x / skullWidth;
-        const ny = y / skullHeight;
+    // 3D voxel-style skull mask
+    for (let z = 0; z < skullDepth; z++) {
+      for (let y = 0; y < skullHeight; y++) {
+        for (let x = 0; x < skullWidth; x++) {
+          const nx = x / skullWidth;
+          const ny = y / skullHeight;
+          const nz = z / skullDepth;
 
-        // Skull mask function (side profile)
-        const r = Math.sqrt((nx - 0.4)**2 + (ny - 0.5)**2);
-        const jaw = ny > 0.6 && nx < 0.5;
-        const eye = Math.abs(nx - 0.35) < 0.05 && Math.abs(ny - 0.4) < 0.05;
-        const skull = r < 0.35 || jaw || eye;
+          // Rough skull mask: sphere + jaw + eye socket
+          const r = Math.sqrt((nx - 0.5)**2 + (ny - 0.5)**2 + (nz - 0.5)**2);
+          const head = r < 0.35;
+          const jaw = ny > 0.65 && nx < 0.55;
+          const eye = Math.abs(nx - 0.35) < 0.07 && Math.abs(ny - 0.4) < 0.07 && nz > 0.3 && nz < 0.7;
+          const skull = head || jaw || eye;
 
-        if (skull) {
-          const tex = eye ? textures[3] : textures[Math.floor(Math.random() * 5)];
-          const sprite = makeSprite(tex);
-          sprite.position.set((x - skullWidth/2)*1.5, (skullHeight/2 - y)*1.5, 0);
-          skullSprites.push(sprite);
-          scene.add(sprite);
+          if (skull) {
+            const tex = eye ? textures[2] : textures[Math.floor(Math.random() * textures.length)];
+            const opacity = eye ? 1 : Math.max(0.3, 1 - Math.abs(ny - 0.5));
+            const sprite = makeSprite(tex, opacity);
+            sprite.position.set(
+              (x - skullWidth/2) * 1.2,
+              (skullHeight/2 - y) * 1.2,
+              (z - skullDepth/2) * 1.2
+            );
+            skullSprites.push(sprite);
+            scene.add(sprite);
+          }
         }
       }
     }
 
+    // Orbit animation
     function animate() {
       requestAnimationFrame(animate);
+      const t = Date.now() * 0.0003;
+      camera.position.x = 120 * Math.sin(t);
+      camera.position.z = 120 * Math.cos(t);
       camera.lookAt(0, 0, 0);
       renderer.render(scene, camera);
     }
