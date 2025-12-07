@@ -29,6 +29,7 @@
       overflow-x: hidden;
     }
 
+    /* Background rain layer */
     #bg {
       position: fixed; top: 0; left: 0;
       width: 100%; height: 100%;
@@ -50,7 +51,12 @@
       box-shadow: 0 0 0 1px #00ff9944;
       overflow: hidden;
     }
-    canvas { width: 100%; height: 100%; display: block; }
+    /* Foreground transform canvas fills the container */
+    #transformCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
 
     .action-btn {
       display: block; margin: 1.5rem auto 3rem auto;
@@ -98,21 +104,92 @@
   </footer>
 
   <!-- Punisher audio -->
-  <audio id="punisherSound" src="punishertitle.mp3" preload="auto"></audio>
+  <audio id="punisherSound" src="assets/punishertitle.mp3" preload="auto"></audio>
 
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
 
-    // Transformation Scene
-    const canvas = document.getElementById("transformCanvas");
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-    const container = document.querySelector(".glitch-container");
-    renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    /* =========================
+       Background Binary Rain
+       ========================= */
+    const bgScene = new THREE.Scene();
+    const bgCamera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+    bgCamera.position.z = 80;
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(70, container.clientWidth/container.clientHeight, 0.1, 1000);
-    camera.position.z = 100;
+    const bgRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    bgRenderer.setPixelRatio(window.devicePixelRatio);
+    bgRenderer.setSize(window.innerWidth, window.innerHeight);
+    document.getElementById('bg').appendChild(bgRenderer.domElement);
+
+    Object.assign(bgRenderer.domElement.style, {
+      position: 'fixed',
+      top: 0, left: 0,
+      width: '100%', height: '100%',
+      zIndex: 0,
+      pointerEvents: 'none'
+    });
+
+    function createDigitTexture(char, color = '#ff6f00') {
+      const size = 128;
+      const c = document.createElement('canvas'); c.width = size; c.height = size;
+      const ctx = c.getContext('2d');
+      ctx.clearRect(0, 0, size, size);
+      ctx.fillStyle = color;
+      ctx.font = 'bold 96px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(char, size / 2, size / 2);
+      const tex = new THREE.CanvasTexture(c);
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    const rainTex1 = createDigitTexture('1', '#ff6f00');
+    const rainTex0 = createDigitTexture('0', '#ff6f00');
+
+    function makeRainSprite(charTex) {
+      const material = new THREE.SpriteMaterial({ map: charTex, transparent: true });
+      const sprite = new THREE.Sprite(material);
+      sprite.scale.set(4, 4, 1);
+      return sprite;
+    }
+
+    const RAIN_COUNT = 300, AREA = 140, TOP = 90, BOTTOM = -90;
+    const SPEED_MIN = 0.12, SPEED_MAX = 0.35;
+
+    const rainSprites = [];
+    for (let i = 0; i < RAIN_COUNT; i++) {
+      const tex = Math.random() > 0.5 ? rainTex1 : rainTex0;
+      const s = makeRainSprite(tex);
+      s.position.set(
+        (Math.random() - 0.5) * AREA,
+        Math.random() * (TOP - 10) + 10,
+        (Math.random() - 0.5) * AREA
+      );
+      s.userData.vy = -(Math.random() * (SPEED_MAX - SPEED_MIN) + SPEED_MIN);
+      s.userData.vx = (Math.random() - 0.5) * 0.05;
+      s.userData.vz = (Math.random() - 0.5) * 0.05;
+      rainSprites.push(s);
+      bgScene.add(s);
+    }
+
+    bgScene.fog = new THREE.FogExp2(0x000000, 0.015);
+
+    /* =========================
+       Foreground Transform
+       ========================= */
+    const tCanvas = document.getElementById("transformCanvas");
+    const container = document.querySelector(".glitch-container");
+
+    const fgRenderer = new THREE.WebGLRenderer({ canvas: tCanvas, antialias: true, alpha: true });
+    fgRenderer.setPixelRatio(window.devicePixelRatio);
+    fgRenderer.setSize(container.clientWidth, container.clientHeight);
+
+    const fgScene = new THREE.Scene();
+    const fgCamera = new THREE.PerspectiveCamera(70, container.clientWidth / container.clientHeight, 0.1, 1000);
+    fgCamera.position.z = 100;
 
     function makeTexture(char, color){
       const c=document.createElement("canvas"); c.width=64; c.height=64;
@@ -144,7 +221,7 @@
       domePos.push(new THREE.Vector3(x,y,z));
     }
 
-    // Temple positions
+    // Temple positions (tiered)
     const tiers=10, tierHeight=4, baseRadius=25;
     for(let t=0;t<tiers;t++){
       const tierY=t*tierHeight;
@@ -158,12 +235,14 @@
       }
     }
 
-    // Sprites
+    // Sprites start as green dome
     for(let i=0;i<COUNT;i++){
       const tex=Math.random()>0.5?tex1g:tex0g;
       const s=makeSprite(tex);
       s.position.copy(domePos[i%domePos.length]);
-      sprites.push(s); scene.add(s);
+      // depth glow variation
+      s.material.opacity = 0.35 + (0.65 * (1 - Math.abs(s.position.z)/50));
+      sprites.push(s); fgScene.add(s);
     }
 
     let detonated=false, reforming=false;
@@ -172,6 +251,11 @@
       detonated=true; reforming=false;
       const sound=document.getElementById("punisherSound");
       if(sound){ sound.currentTime=0; sound.play().catch(()=>{}); }
+      // subtle flash feedback
+      const oldBg = document.body.style.background;
+      document.body.style.background = "#111";
+      setTimeout(()=>document.body.style.background = oldBg || "transparent", 300);
+
       sprites.forEach(s=>{
         s.userData.v=new THREE.Vector3(
           (Math.random()-0.5)*2,
@@ -186,4 +270,83 @@
       detonated=false; reforming=true;
       sprites.forEach((s,i)=>{
         s.material.map=Math.random()>0.5?tex1o:tex0o;
-        s.userData
+        s.userData.target=templePos[i%templePos.length];
+      });
+    }
+
+    document.getElementById("transformBtn").onclick=detonate;
+
+    /* =========================
+       Unified Animation Loop
+       ========================= */
+    function animate(){
+      requestAnimationFrame(animate);
+
+      // Background rain camera motion
+      const t = Date.now() * 0.0002;
+      bgCamera.position.x = Math.sin(t) * 5;
+      bgCamera.position.y = Math.cos(t * 0.7) * 3;
+      bgCamera.lookAt(0, 0, 0);
+
+      // Rain update
+      for (const s of rainSprites) {
+        s.position.y += s.userData.vy;
+        s.position.x += s.userData.vx * 0.5;
+        s.position.z += s.userData.vz * 0.5;
+        if (s.position.y < BOTTOM) {
+          s.position.y = TOP;
+          s.position.x = (Math.random() - 0.5) * AREA;
+          s.position.z = (Math.random() - 0.5) * AREA;
+          s.userData.vy = -(Math.random() * (SPEED_MAX - SPEED_MIN) + SPEED_MIN);
+          s.userData.vx = (Math.random() - 0.5) * 0.05;
+          s.userData.vz = (Math.random() - 0.5) * 0.05;
+        }
+      }
+
+      // Foreground camera cinematic orbit
+      const tt = Date.now() * 0.00015;
+      fgCamera.position.x = 100 * Math.sin(tt);
+      fgCamera.position.z = 100 * Math.cos(tt);
+      fgCamera.lookAt(0, 20, 0);
+
+      // Transform update
+      for (const s of sprites) {
+        if(detonated && s.userData.v){
+          s.position.add(s.userData.v);
+          s.userData.v.multiplyScalar(0.95);
+        }
+        if(reforming && s.userData.target){
+          s.position.lerp(s.userData.target, 0.05);
+        }
+      }
+
+      bgRenderer.render(bgScene, bgCamera);
+      fgRenderer.render(fgScene, fgCamera);
+    }
+    animate();
+
+    /* =========================
+       Resize Handling (both)
+       ========================= */
+    function resizeAll(){
+      // Background
+      bgCamera.aspect = window.innerWidth / window.innerHeight;
+      bgCamera.updateProjectionMatrix();
+      bgRenderer.setSize(window.innerWidth, window.innerHeight);
+
+      // Foreground container
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      fgCamera.aspect = w / h;
+      fgCamera.updateProjectionMatrix();
+      fgRenderer.setSize(w, h);
+    }
+
+    window.addEventListener('resize', resizeAll);
+    // In case fonts/layout shift container after load
+    setTimeout(resizeAll, 50);
+    setTimeout(resizeAll, 400);
+  </script>
+</body>
+</html>
+
