@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Binary Microchip Explosion</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.2/dist/gsap.min.js"></script>
+  <style>
+    body { margin:0; background:#0a0a0d; overflow:hidden; }
+    .action-btn {
+      position: absolute; top:20px; left:50%; transform:translateX(-50%);
+      padding:0.6rem 1.8rem; font-size:1rem; font-weight:600;
+      background:#00d4ff; color:#111; border:none; border-radius:1.5rem;
+      cursor:pointer; z-index:10;
+    }
+    .action-btn:active { transform:translateX(-50%) scale(0.95); }
+  </style>
+</head>
+<body>
+  <button class="action-btn" onclick="explodeChip()">Try this</button>
+  <script>
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.z = 80;
+
+    const renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Glow effect via additive blending
+    function createDigitTexture(char, color='#00ff99') {
+      const size=128, c=document.createElement('canvas'); c.width=size; c.height=size;
+      const ctx=c.getContext('2d');
+      ctx.fillStyle=color; ctx.font='bold 96px monospace';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(char, size/2, size/2);
+      const tex=new THREE.CanvasTexture(c);
+      return tex;
+    }
+    const tex1=createDigitTexture('1','#ff6f00');
+    const tex0=createDigitTexture('0','#00d4ff');
+
+    function makeSprite(tex) {
+      const mat=new THREE.SpriteMaterial({map:tex, transparent:true, blending:THREE.AdditiveBlending});
+      const s=new THREE.Sprite(mat); s.scale.set(2,2,1); return s;
+    }
+
+    // Build microchip block
+    const chipSprites=[];
+    const rows=20, cols=30, layers=4, spacing=2;
+    for(let z=0; z<layers; z++){
+      for(let i=0;i<rows;i++){
+        for(let j=0;j<cols;j++){
+          const tex=Math.random()>0.5?tex1:tex0;
+          const s=makeSprite(tex);
+          s.position.set(j*spacing-cols, i*spacing-rows, z*spacing);
+          chipSprites.push(s); scene.add(s);
+        }
+      }
+    }
+
+    // Explosion
+    function explodeChip(){
+      for(const s of chipSprites){
+        s.userData.vx=(Math.random()-0.5)*4;
+        s.userData.vy=(Math.random()-0.5)*4;
+        s.userData.vz=(Math.random()-0.5)*4;
+      }
+      gsap.to(camera.position,{x:"+=2",y:"+=1",duration:0.2,yoyo:true,repeat:3});
+    }
+
+    // Animate
+    function animate(){
+      requestAnimationFrame(animate);
+      for(const s of chipSprites){
+        if(s.userData.vx){
+          s.position.x+=s.userData.vx*0.5;
+          s.position.y+=s.userData.vy*0.5;
+          s.position.z+=s.userData.vz*0.5;
+          s.material.opacity=Math.max(0,s.material.opacity-0.01); // fade out
+        }
+      }
+      renderer.render(scene,camera);
+    }
+    animate();
+
+    window.addEventListener('resize',()=>{
+      camera.aspect=window.innerWidth/window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth,window.innerHeight);
+    });
+  </script>
+</body>
+</html>
